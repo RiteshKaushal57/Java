@@ -1,4 +1,4 @@
-### Introduction
+#### Introduction
 
 #### 1. The Era Before Java
 
@@ -201,11 +201,9 @@
 > **Core takeaway:** Java was designed around three major ideas — **Portable, Simple, and Secure**. 
 
 
-Absolutely. I’ll keep this format for the rest of the scripts: **structured notes, clear headings, important terms in bold, concise explanations, and no timestamps**.
+### JVM, JDK & JRE
 
-This video explains the **JVM, JRE, and JDK hierarchy**, how Java programs are compiled and executed, the difference between **compilers and interpreters**, the role of the **JIT compiler**, Java's runtime security and garbage collection, the different Java editions, and finally how to compile and run a basic Java program. 
-
-### 1. Java Program Execution — Basic Flow
+#### 1. Java Program Execution — Basic Flow
 
 * A Java source file uses the **`.java`** extension.
 
@@ -225,7 +223,7 @@ This video explains the **JVM, JRE, and JDK hierarchy**, how Java programs are c
 
 * The JVM on each platform converts the same ByteCode into the machine instructions required by that particular platform. 
 
-### 2. JVM, JRE and JDK Hierarchy
+#### 2. JVM, JRE and JDK Hierarchy
 
 The three important Java components are:
 
@@ -241,7 +239,7 @@ Their hierarchy can be remembered as:
 * **JRE** contains the JVM and the required Java class libraries.
 * **JDK** contains the JRE plus development tools such as the compiler and debugger. 
 
-### 3. JVM — Java Virtual Machine
+#### 3. JVM — Java Virtual Machine
 
 * The primary job of the JVM is to **execute Java ByteCode**.
 * The JVM can be thought of as a **virtual environment/machine** in which Java ByteCode runs.
@@ -249,7 +247,7 @@ Their hierarchy can be remembered as:
 * The JVM converts or executes this ByteCode in a form that the underlying platform can run.
 * Each platform needs an appropriate JVM because the final machine code depends on the processor and operating system. 
 
-### 4. Compiler vs Interpreter
+#### 4. Compiler vs Interpreter
 
 Both a **compiler** and an **interpreter** translate code, but they work differently.
 
@@ -258,7 +256,7 @@ Both a **compiler** and an **interpreter** translate code, but they work differe
 * A compiler does not necessarily have to translate directly into machine code; in Java, the compiler first converts **source code → ByteCode**.
 * The JVM then handles the next stage of execution. 
 
-### 5. Is Java a Compiled or Interpreted Language?
+#### 5. Is Java a Compiled or Interpreted Language?
 
 * Java is described as **both compiled and interpreted**.
 
@@ -270,7 +268,7 @@ Both a **compiler** and an **interpreter** translate code, but they work differe
 
 * Therefore, Java combines the two approaches rather than being purely compiled or purely interpreted. 
 
-### 6. Why Java Originally Used an Interpreter
+#### 6. Why Java Originally Used an Interpreter
 
 * Early Java execution used an **interpreter** inside the JVM.
 * The main reason was to allow a Java program to **start executing quickly**.
@@ -282,7 +280,7 @@ Both a **compiler** and an **interpreter** translate code, but they work differe
 * Adding another full compilation stage could increase execution delay.
 * Therefore, the interpreter could translate code progressively and allow execution to begin immediately. 
 
-### 7. JIT Compiler — Just-In-Time Compiler
+#### 7. JIT Compiler — Just-In-Time Compiler
 
 * As computer hardware became faster, the original limitations became less important.
 * Modern JVMs introduced the **JIT (Just-In-Time) Compiler**.
@@ -301,14 +299,14 @@ and for frequently executed code:
 
 * This creates a **hybrid execution model** using both interpretation and JIT compilation. 
 
-### 8. Why Does Java Need Both Interpreter and JIT?
+#### 8. Why Does Java Need Both Interpreter and JIT?
 
 * The interpreter allows code to begin executing without waiting for everything to be compiled.
 * The JIT compiler improves execution of **frequently used code** by converting it into machine code.
 * The JVM can therefore take advantage of both approaches.
 * The lecture describes Java as having some additional conversion overhead compared with languages such as C++, but modern hardware and JVM optimizations have greatly reduced the practical difference. 
 
-### 9. Main Functions of the JVM
+#### 9. Main Functions of the JVM
 
 The lecture identifies three major responsibilities of the JVM:
 
@@ -327,7 +325,7 @@ So, at a high level:
 
 **JVM = ByteCode Execution + Security + Garbage Collection** 
 
-### 10. Java Security — Sandbox Model
+#### 10. Java Security — Sandbox Model
 
 * Because Java ByteCode is portable, it can potentially come from an external source.
 * The lecture explains the risk of running downloaded code with unrestricted system access.
@@ -341,13 +339,13 @@ So, at a high level:
 * The idea is that Java code should not automatically receive unrestricted access to the host system.
 * The ByteCode runs inside the JVM's controlled environment rather than directly receiving unrestricted system access. 
 
-### 11. Garbage Collection
+#### 11. Garbage Collection
 
 * **Garbage Collection** is another JVM responsibility.
 * It handles Java's memory-management process.
 * The lecture only introduces the concept here and postpones the detailed explanation to a later lecture. 
 
-### 12. JRE — Java Runtime Environment
+#### 12. JRE — Java Runtime Environment
 
 * **JRE = JVM + Java Class Libraries**
 * The JRE provides the environment required to **run Java programs**.
@@ -363,7 +361,7 @@ So, at a high level:
 
 `JRE = JVM + Class Libraries` 
 
-### 13. Why Class Libraries Are Important
+#### 13. Why Class Libraries Are Important
 
 * A Java program does not implement every basic operation itself.
 * For example, printing something to the console requires Java's existing classes/methods.
@@ -374,7 +372,7 @@ So, at a high level:
   * The **JVM**
   * The **Java Class Libraries** 
 
-### 14. JDK — Java Development Kit
+#### 14. JDK — Java Development Kit
 
 * **JDK = Java Development Kit**
 * The JDK is the complete package used for **developing and running Java applications**.
@@ -391,14 +389,14 @@ Important tools mentioned in the lecture include:
 * **Java documentation tools (JavaDoc)**
 * Other development utilities 
 
-### 15. What Is a Debugger?
+#### 15. What Is a Debugger?
 
 * A **debugger** helps developers understand and troubleshoot programs.
 * It can execute a program step by step.
 * You can pause execution at a particular line and observe what happens.
 * This is useful for finding and understanding bugs. 
 
-### 16. JDK, JRE and JVM — Quick Comparison
+#### 16. JDK, JRE and JVM — Quick Comparison
 
 | Component | Main Purpose                           |
 | --------- | -------------------------------------- |
@@ -416,7 +414,7 @@ Or, more specifically:
 
 `JDK = JRE + Development Tools` 
 
-### 17. JSE, JEE and JME
+#### 17. JSE, JEE and JME
 
 Java is also discussed in terms of different editions.
 
@@ -447,7 +445,7 @@ Java is also discussed in terms of different editions.
 * It was used for applications on older mobile phones.
 * The lecture describes JME as largely **obsolete today**, with modern mobile development having moved toward platforms such as Android. 
 
-### 18. Writing the First Java Program
+#### 18. Writing the First Java Program
 
 * A Java source file can be written using a text editor or an IDE such as:
 
@@ -460,7 +458,7 @@ Java is also discussed in terms of different editions.
 
 * The lecture focuses here on **how to run Java**, rather than explaining every Java syntax element. 
 
-### 19. Compiling the First Java Program
+#### 19. Compiling the First Java Program
 
 * After installing the **JDK**, the Java compiler becomes available.
 * The source file is compiled using:
@@ -477,7 +475,7 @@ javac Demo.java
 
 * The `.class` file contains the intermediate **ByteCode**. 
 
-### 20. Running the First Java Program
+#### 20. Running the First Java Program
 
 * Once `Demo.class` has been generated, the program can be started using:
 
@@ -502,7 +500,7 @@ Hello World
 
 
 
-### 21. Overall Architecture to Remember
+#### 21. Overall Architecture to Remember
 
 The entire lecture can be summarized as:
 
@@ -526,7 +524,7 @@ And the execution process is:
 
 `Source Code (.java) → Compiler → ByteCode (.class) → JVM → Machine Code → CPU → Output`
 
-### 22. Key Takeaways From the Video
+#### 22. Key Takeaways From the Video
 
 * **JVM** executes Java ByteCode and provides important runtime functionality.
 * **JRE** provides the JVM plus Java's standard class libraries.
@@ -544,5 +542,3 @@ And the execution process is:
 javac Demo.java
 java Demo
 ```
-
-* The key thing to understand is not just the syntax, but what happens **behind the scenes from the `.java` file all the way to the final output**.  
