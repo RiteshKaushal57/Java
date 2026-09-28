@@ -6740,7 +6740,7 @@ Same rule for constructors and setters: **copy mutable arguments on the way in**
 
 **6. Frameworks:** Getters/setters follow the **JavaBeans convention** (`getX`, `isX` for boolean, `setX`), which frameworks (Spring, Jackson, Hibernate) use via reflection. Tools like **Lombok** (`@Getter`, `@Setter`) generate them, but the design advice above still applies.
 
----
+
 
 ### 2. Access modifiers
 
@@ -6823,7 +6823,7 @@ public class Child extends Parent {
 
 **7. Reflection can bypass `private`** via `setAccessible(true)` (subject to module restrictions). Access modifiers are compile-time and design tools, not a security boundary.
 
----
+
 
 ### 3. Packages
 
@@ -6904,7 +6904,7 @@ In IDEs/Maven/Gradle the tooling handles this, but the directory must match the 
 
 **7. Classpath and JARs:** packages are what JARs are made of. The **ClassLoader** finds `com/example/college/Student.class` on the classpath/modulepath by converting the package name to a path.
 
----
+
 
 ### 4. Inheritance
 
@@ -7012,7 +7012,7 @@ Do not reuse field names in subclasses. It is a source of confusing bugs.
 - Prevent unwanted extension with `final class` (e.g. `String`); Java 17+ `sealed` classes allow a controlled list of subclasses.
 - Design for inheritance or prohibit it (Effective Java, Item 19).
 
----
+
 
 ### 5. Types of inheritance
 
@@ -7045,7 +7045,7 @@ class MedicalStudent extends Student { }      // sibling of EngineeringStudent
 class C extends A, B { }     // COMPILE ERROR
 ```
 
----
+
 
 ### 6. The diamond problem (why multiple class inheritance is banned)
 
@@ -7080,7 +7080,7 @@ Without the override, `D` fails to compile ("inherits unrelated defaults"). **Co
 
 Interfaces have **no instance state**, which is why multiple inheritance of *behaviour* is manageable in Java while multiple inheritance of *state* is not.
 
----
+
 
 ### 7. The `super` keyword
 
@@ -7185,7 +7185,7 @@ new Child();   // null
 - You can only reach the **immediate** parent with `super`. To bypass a level, restructure the design (or use interface `X.super.method()` syntax for default methods).
 - Inside an inner class, `Outer.this` accesses the outer instance (different from `super`).
 
----
+
 
 ### 8. Full example: everything together
 
@@ -7260,7 +7260,7 @@ public class Main {
 }
 ```
 
----
+
 
 ### 9. Quick comparison tables
 
@@ -7279,7 +7279,7 @@ public class Main {
 | Usable as a value | Yes (`return this;`) | No |
 | In static context | No | No |
 
----
+
 
 ### 10. Interview questions
 
@@ -7345,7 +7345,576 @@ super(args)      → parent constructor, must be first, runs first
 
 
 
+## 17. Abstraction and Polymorphism
 
+> **Scope:** Abstraction (low-level vs high-level), abstract classes, interfaces, abstract class vs interface, abstraction vs encapsulation, polymorphism (compile-time and runtime), and what `static`, `private`, `final` and fields do under polymorphism.
+> Sections marked **Beyond the video** add the depth expected at 2-3 years of experience.
+
+
+
+### 0. Corrections to the video (read first)
+
+| Video says | Accurate version |
+|---|---|
+| Interface methods can only be declared, never defined ("old Java") | True only up to Java 7. Since **Java 8** interfaces can have `default` and `static` methods; since **Java 9**, `private` methods. Modern interfaces are *not* "100% abstract". |
+| Interface = "pure what", abstract class = "partial what + how" | Historically right. Today the real differences are **state, constructors, and single vs multiple inheritance** (see section 6). |
+| "Encapsulation is about security, abstraction is about hiding" | Better: **encapsulation protects an object's invariants** (hides *data*, at implementation level). **Abstraction hides complexity and exposes an essential contract** (hides *implementation*, at design level). `private` is not a security boundary (reflection can bypass it). |
+| Compile-time polymorphism = overloading, runtime = overriding | Correct as the standard interview answer. Strictly, overloading is "ad hoc" polymorphism (just different methods sharing a name), while overriding is **subtype** polymorphism, the one that gives OOP its power. |
+| "Object is created at runtime, hence runtime polymorphism" | The real reason: the method that runs is chosen by the **actual object's class at runtime** (dynamic dispatch via `invokevirtual`), not by the reference type. |
+| "Fields don't take part in polymorphism" | Correct. Fields are **hidden**, not overridden, and resolved by **reference type at compile time**. |
+| "Interface names should end in -able; C# uses `I` prefix" | `-able` is a convention for *capability* interfaces (`Comparable`, `Runnable`). Many interfaces are plain nouns (`List`, `Map`, `Collection`). The `IFoo` prefix is **not** Java style. |
+| "Reference of type Car can hold ElectricCar, so coupling is removed" | Coupling is **reduced**, not removed: callers depend only on the abstraction (`Car`), and only the code that calls `new ElectricCar()` knows the concrete type. Frameworks (Spring DI) remove even that. |
+| "An abstract class must have abstract methods" | No. An abstract class **may have zero** abstract methods (it is just non-instantiable). But **any** abstract method forces the class to be abstract. |
+
+
+
+### 1. What is abstraction?
+
+> **Abstraction:** focus on **what** something does, ignore **how** it does it.
+
+- Real world: you drive a car using steering, pedals, gear stick. You don't need to know how combustion works. An ATM offers `deposit`, `withdraw`, `checkBalance`; the internals are hidden.
+- OOP models the **idea/perception** of an object, not the full reality. A `Teacher` class has `teach()` and `takeAttendance()`, not biology.
+
+Two things abstraction demands:
+1. **Model only what is necessary** (leave out irrelevant detail).
+2. **Expose an interface for use, hide implementation details.**
+
+#### Two levels in Java
+
+| Level | Idea | Java mechanism |
+|---|---|---|
+| **Low-level** | Hide implementation details from users of a class | Plain **classes** + methods (users call `car.start()` without knowing the body) |
+| **High-level** | **Separate *what* from *how*** so the caller isn't tied to one implementation | **Abstract classes** and **interfaces** |
+
+#### Low-level abstraction (already familiar)
+
+```java
+class Car {
+    void start()      { /* internals hidden */ }
+    void accelerate() { /* internals hidden */ }
+    void brake()      { /* internals hidden */ }
+}
+
+Car c = new Car();
+c.start();          // caller knows WHAT, not HOW
+```
+
+#### The problem that high-level abstraction solves: tight coupling
+
+```java
+FuelCar     fc = new FuelCar();       // caller is tied to concrete classes
+ElectricCar ec = new ElectricCar();   // every new type = new variable type, new code paths
+fc.drive();
+ec.drive();
+```
+
+`drive()` means the same thing (**what**) but is implemented differently (**how**). If callers hold concrete types, every new kind of car (diesel, hydrogen) forces changes in callers. The fix: let callers hold a **common supertype** and let the **runtime object** supply the *how*.
+
+```java
+Car c = new ElectricCar();   // or new FuelCar(), decided at runtime
+c.drive();                   // right implementation runs
+```
+
+Abstract classes and interfaces formalize this.
+
+
+
+### 2. Abstract classes
+
+An **abstract class** is a class declared with `abstract` that **cannot be instantiated**. It may contain **abstract methods** (declaration only, no body) and **concrete methods** (with bodies).
+
+```java
+abstract class Car {
+
+    void start() {                                     // concrete: shared behaviour
+        System.out.println("Car started");
+    }
+
+    abstract void accelerate();                        // declared only: subclasses must define
+    abstract void brake();
+}
+
+class FuelCar extends Car {
+    @Override void accelerate() { System.out.println("Fuel car accelerating"); }
+    @Override void brake()      { System.out.println("Fuel car stopping"); }
+}
+
+class ElectricCar extends Car {
+    @Override void accelerate() { System.out.println("Electric car accelerating"); }
+    @Override void brake()      { System.out.println("Regenerative braking"); }
+}
+
+public class Demo {
+    public static void main(String[] args) {
+        // Car c = new Car();        // ERROR: Car is abstract; cannot be instantiated
+        Car c = new ElectricCar();   // or new FuelCar()
+        c.start();                   // Car started            (inherited)
+        c.accelerate();              // Electric car accelerating (runtime choice)
+        c.brake();                   // Regenerative braking
+    }
+}
+```
+
+#### Rules
+
+| Rule | Detail |
+|---|---|
+| Any abstract method ⇒ class must be `abstract` | The compiler enforces it. |
+| Cannot `new` an abstract class | It could have undefined methods. |
+| Concrete subclass **must implement all** inherited abstract methods | Otherwise the subclass itself must be declared `abstract` (the obligation passes down). |
+| Abstract methods have **no body** (`;` instead of `{}`) | |
+| `abstract` cannot combine with `final`, `private`, or `static` | Each contradicts the need to override. |
+| Abstract class **may have** fields, constructors, concrete methods, static methods, nested types | Unlike interfaces, it can hold **instance state**. |
+| Abstract class may have **zero** abstract methods | Used to prevent direct instantiation. |
+| `@Override` is optional but **always use it** | Compiler catches typos and signature mismatches. |
+
+#### Beyond the video
+
+**1. Constructors in abstract classes.** You cannot call `new Car()`, but the constructor exists and **runs when a subclass is instantiated** (via `super(...)`), initializing shared state:
+
+```java
+abstract class Shape {
+    private final String name;
+    protected Shape(String name) { this.name = name; }
+    String getName() { return name; }
+    abstract double area();
+}
+class Circle extends Shape {
+    private final double r;
+    Circle(double r) { super("circle"); this.r = r; }
+    @Override double area() { return Math.PI * r * r; }
+}
+```
+
+**2. Anonymous subclass** lets you "instantiate" an abstract type on the fly (you are actually creating an unnamed subclass):
+```java
+Shape s = new Shape("unit") { @Override double area() { return 1; } };
+```
+
+**3. Template Method pattern**: the classic use of abstract classes. Fix the algorithm skeleton (`final`), leave steps abstract.
+```java
+abstract class ReportJob {
+    public final void run() { load(); process(); export(); }   // final: order can't be changed
+    protected abstract void load();
+    protected abstract void process();
+    protected void export() { System.out.println("default export"); }  // optional hook
+}
+```
+
+**4. Pitfall: don't call abstract/overridable methods from a constructor.** The parent constructor runs before the child's fields are initialized (see the inheritance notes).
+
+
+
+### 3. Interfaces
+
+An **interface** defines a **contract**: a set of capabilities a class promises to provide. It says *what* the implementer can do, not *how*. It is **not a blueprint of an object** (you can't instantiate it).
+
+```java
+interface Car {
+    void start();          // implicitly public abstract
+    void accelerate();
+    void brake();
+}
+
+class FuelCar implements Car {
+    @Override public void start()      { System.out.println("Fuel car started"); }
+    @Override public void accelerate() { System.out.println("Fuel car accelerating"); }
+    @Override public void brake()      { System.out.println("Fuel car stopping"); }
+}
+
+Car c = new FuelCar();     // Car c = new Car(); is illegal
+c.start();
+```
+
+- Class **`extends`** a class, **`implements`** an interface. An interface **`extends`** other interfaces (can extend several).
+- Methods are **implicitly `public`**. So in the implementing class you **must** write `public`, otherwise: *"attempting to assign weaker access privileges"* (the video's error *"cannot reduce the visibility of the inherited method"*). Overriding can never reduce visibility.
+
+#### What an interface can contain (modern Java)
+
+| Member | Since | Notes |
+|---|---|---|
+| Abstract methods | 1.0 | Implicitly `public abstract` |
+| **Constants** (fields) | 1.0 | Implicitly `public static final` |
+| **`default` methods** | Java 8 | Have a body; inherited by implementers; can be overridden |
+| **`static` methods** | Java 8 | Called as `InterfaceName.method()`; **not inherited** |
+| **`private` methods** | Java 9 | Share code between default methods |
+| Nested types | 1.0 | Implicitly `public static` |
+| **Instance fields / constructors** | Never | Interfaces hold **no instance state** |
+
+```java
+interface Vehicle {
+    int MAX_SPEED = 200;                           // public static final
+    void start();
+
+    default void honk() { System.out.println("Beep"); }   // optional to override
+
+    static Vehicle noOp() { return () -> { }; }            // static factory (lambda works: single abstract method)
+}
+```
+
+**Why default methods exist:** to add methods to widely used interfaces (e.g. `List.sort`, `Collection.stream`) **without breaking** every existing implementation.
+
+#### Naming
+
+`-able` names describe a capability: `Comparable`, `Runnable`, `Serializable`, `Flyable`. Noun names are equally common (`List`, `Comparator`). Do **not** prefix with `I` in Java.
+
+```java
+interface Flyable { void fly(); }
+class Bird implements Flyable     { public void fly() { System.out.println("Flap wings"); } }
+class Airplane implements Flyable { public void fly() { System.out.println("Use engines"); } }
+```
+
+`Bird` and `Airplane` share **no family**, only a **capability**. That is exactly what interfaces express.
+
+#### Beyond the video
+
+- **Multiple inheritance of type:** `class C implements A, B` is fine (diamond conflicts in default methods must be resolved explicitly, see the inheritance notes: `A.super.m()`).
+- **Functional interface:** exactly one abstract method (`Runnable`, `Comparator`, `Function`). Can be implemented with a **lambda**; annotate with `@FunctionalInterface`.
+- **Marker interface:** no methods (`Serializable`, `Cloneable`), it tags a class.
+- **Sealed interfaces (Java 17):** `sealed interface Shape permits Circle, Square {}` restricts implementers.
+- **Program to an interface:** `List<String> list = new ArrayList<>();`. Swap `ArrayList` for `LinkedList` without touching callers. Spring injects implementations into fields typed by interface.
+- **Interface Segregation:** prefer several small interfaces over one large one.
+
+
+
+### 4. Low-level vs high-level: putting it together
+
+```
+              ┌────────────────┐
+  caller ───► │  Car (abstract │  ← the WHAT (contract)
+              │  class/iface)  │
+              └───────┬────────┘
+             ┌────────┴────────┐
+        ┌────▼────┐       ┌────▼────────┐
+        │FuelCar  │       │ElectricCar  │   ← the HOW (implementations)
+        └─────────┘       └─────────────┘
+```
+
+Callers depend on `Car`. Implementations can be added, swapped, or mocked in tests without changing callers (**Open/Closed Principle**, **Dependency Inversion**).
+
+
+
+### 5. Abstract class vs interface
+
+| | Abstract class | Interface |
+|---|---|---|
+| Purpose | Family of **closely related** classes; share code and state ("**is-a** kind of") | A **capability/role/contract** any class can adopt ("**can-do**") |
+| Methods | Abstract + concrete | Abstract + `default` + `static` + `private` |
+| Fields | Any (instance, static, any access) | Only constants (`public static final`) |
+| Constructors | Yes | No |
+| Instance state | Yes | No |
+| Access modifiers on methods | Any | Public (private since Java 9 for helpers) |
+| Inheritance | A class can extend **only one** | A class can implement **many** |
+| Relation to hierarchy | `extends` | `implements` / `extends` (interface to interface) |
+| Instantiation | No | No |
+| Typical use | Template Method, shared base logic | Strategy, plugin APIs, DI, callbacks |
+
+**Choosing:**
+- Need **shared state or code** among related classes? → abstract class.
+- Need **unrelated classes** to share a capability, or need **multiple inheritance of type**? → interface.
+- Default to an interface for APIs; add an abstract skeletal class if there is common logic (e.g. `List` + `AbstractList`).
+- It is often both: an interface for the contract plus an abstract class as a convenience base.
+
+
+### 6. Abstraction vs encapsulation
+
+| | Abstraction | Encapsulation |
+|---|---|---|
+| Focus | **What** the object exposes; hides complexity | **How the data is protected**; bundles data + methods |
+| Level | Design level | Implementation level |
+| Achieved by | Abstract classes, interfaces | Access modifiers (`private`), getters/setters, immutability |
+| Hides | Implementation details (behaviour) | Internal state (data) |
+| Example | `Car` interface: drive without knowing engine | `BankAccount.balance` is `private`; change via `deposit()` |
+| Analogy | Car pedals | The bonnet is closed (and locked to prevent tampering) |
+
+They complement each other: abstraction defines the public contract; encapsulation guards the internals that fulfil it. An interview answer: *"Abstraction is about **what** you expose, encapsulation is about **how** you protect what's inside."*
+
+
+### 7. Polymorphism
+
+**Poly** (many) + **morph** (forms): the same operation behaves differently depending on context.
+
+Real-world: a human told to "run" runs at one speed normally, and faster if a dog chases (same object, same command, different parameters). A dog, a duck, and a human told to "run" each run differently (different objects, same command).
+
+| Type | Also called | Mechanism | Resolved |
+|---|---|---|---|
+| **Compile-time** | Static / early binding | Method **overloading** | By the compiler, from **argument types** |
+| **Runtime** | Dynamic / late binding | Method **overriding** | By the JVM, from the **actual object's class** |
+
+
+
+### 8. Compile-time polymorphism: method overloading
+
+Same method name, **different parameter list** (number, type, or order).
+
+```java
+class Human {
+    void run()                       { System.out.println("Running at 2 km/h"); }
+    void run(boolean dogBehind)      { System.out.println(dogBehind ? "Running at 5 km/h" : "Running at 2 km/h"); }
+    void run(int km, String terrain) { System.out.println("Running " + km + "km on " + terrain); }
+}
+
+Human h = new Human();
+h.run();            // picked at compile time from the call's signature
+h.run(true);
+h.run(3, "trail");
+```
+
+**Rules**
+- Parameter lists must differ. **Return type alone cannot distinguish** overloads (compile error).
+- Access modifiers and thrown exceptions can differ freely.
+- Works within one class or across parent and child.
+
+#### Beyond the video: overload resolution
+
+The compiler picks the overload by **compile-time (static) types** of the arguments, in three phases: (1) exact/widening primitive conversion, (2) boxing/unboxing, (3) varargs. The **most specific** applicable method wins.
+
+```java
+static void f(Object o) { System.out.println("Object"); }
+static void f(String s) { System.out.println("String"); }
+
+f("hi");                 // String
+Object o = "hi";
+f(o);                    // Object  <- static type is Object, though the object is a String
+f(null);                 // String  (most specific applicable)
+
+static void g(long x)      { System.out.println("long"); }
+static void g(Integer x)   { System.out.println("Integer"); }
+static void g(int... x)    { System.out.println("varargs"); }
+g(5);                    // long (widening beats boxing beats varargs)
+```
+
+Pitfalls: ambiguous calls (`f(null)` with two unrelated reference types) are compile errors; overloading with varargs and boxing can surprise readers. Overloading is **not dynamic**: it never looks at the runtime object.
+
+
+### 9. Runtime polymorphism: method overriding
+
+A subclass provides its own implementation of an inherited method. Which version runs depends on the **actual object**.
+
+```java
+abstract class Animal { abstract void run(); }
+
+class Dog   extends Animal { @Override void run() { System.out.println("Dog runs on four legs"); } }
+class Duck  extends Animal { @Override void run() { System.out.println("Duck waddles"); } }
+class Human extends Animal { @Override void run() { System.out.println("Human jogs"); } }
+
+Animal a = new Dog();
+a.run();          // Dog runs on four legs
+a = new Human();
+a.run();          // Human jogs           <- same reference, same call, different behaviour
+```
+
+Why "runtime"? Which subclass is created may only be known while the program runs (user input, config, DB):
+
+```java
+static Animal create(String type) {
+    return switch (type) {
+        case "dog"   -> new Dog();
+        case "duck"  -> new Duck();
+        case "human" -> new Human();
+        default      -> throw new IllegalArgumentException("Unknown type: " + type);
+    };
+}
+
+for (Animal a : List.of(create("dog"), create("duck"), create("human"))) {
+    a.run();      // caller code never changes when a new Animal type is added
+}
+```
+
+#### Rules for overriding
+
+| Rule | Detail |
+|---|---|
+| Same **name and parameter types** | Otherwise it's an overload, not an override. `@Override` catches this. |
+| **Return type** | Same, or a **subtype** (covariant return) |
+| **Access** | Same or **wider** (never narrower) |
+| **Checked exceptions** | Same or narrower; cannot add broader checked exceptions (unchecked are fine) |
+| Cannot override | `static` (hidden), `private` (not inherited), `final` methods; constructors |
+| Reference type decides **what you may call**; object type decides **which implementation runs** | |
+
+```java
+class Animal { Animal reproduce() { return new Animal(); } }
+class Dog extends Animal { @Override Dog reproduce() { return new Dog(); } }   // covariant return
+```
+
+#### Beyond the video: how the JVM does it
+
+- Each class has a **virtual method table (vtable)**. `invokevirtual` looks up the method through the object's **actual class** at runtime.
+- Calls to `private`, `static`, `final` methods and constructors use direct calls (`invokespecial`/`invokestatic`); no dynamic lookup.
+- The JIT can **inline** monomorphic call sites (only one implementation ever seen), so dispatch is usually cheap.
+
+**Upcasting and downcasting**
+
+```java
+Animal a = new Dog();          // upcast: implicit, always safe
+// a.bark();                   // ERROR: Animal has no bark()
+
+if (a instanceof Dog d) {      // pattern matching (Java 16+): check + cast in one step
+    d.bark();
+}
+Dog d2 = (Dog) a;              // explicit downcast: ClassCastException if a is not a Dog
+```
+
+Frequent downcasting or long `instanceof` chains are a design smell. Add the method to the abstraction instead.
+
+
+
+### 10. What does *not* take part in overriding
+
+| Member | Behaviour under polymorphism | Why |
+|---|---|---|
+| **`static` method** | **Hidden**, resolved by **reference type** | Belongs to the class, not to an object |
+| **`private` method** | **Not overridden**; a same-named child method is unrelated | Not visible to the child |
+| **`final` method** | **Cannot be overridden** (compile error) | Intentionally locked |
+| **Fields (instance vars)** | **Hidden**, resolved by **reference type** | Only methods dispatch dynamically |
+| **Constructors** | Never inherited or overridden | |
+
+```java
+class A {
+    static void hello() { System.out.println("A.hello"); }
+    int x = 10;
+    int getX() { return x; }
+    private void secret() { System.out.println("A.secret"); }
+    void callSecret()     { secret(); }
+}
+class B extends A {
+    static void hello() { System.out.println("B.hello"); }     // hides
+    int x = 20;                                                // hides
+    @Override int getX() { return x; }                         // overrides
+    void secret() { System.out.println("B.secret"); }          // new, unrelated method
+}
+
+A a = new B();
+a.hello();         // A.hello   (static: reference type)
+System.out.println(a.x);        // 10   (field: reference type)
+System.out.println(a.getX());   // 20   (method: actual object)
+a.callSecret();    // A.secret  (A's callSecret calls A's private secret)
+```
+
+**Rule of thumb:** *only instance methods are polymorphic.* To get field-like polymorphism, expose the value through a method (`getX()`), which also fits encapsulation.
+
+#### `final` and inheritance recap
+
+```java
+class P { final void lock() { } }
+class C extends P { /* void lock() { }  ERROR: cannot override final method */ }
+
+final class Sealed { }
+// class Sub extends Sealed { }        // ERROR: cannot inherit from final class
+```
+
+Use `final class` for immutable or security-sensitive types (`String`). Use `final` methods to protect an algorithm (Template Method).
+
+
+### 11. Overloading vs overriding
+
+| | Overloading | Overriding |
+|---|---|---|
+| Polymorphism type | Compile-time (static) | Runtime (dynamic) |
+| Where | Same class or across hierarchy | Subclass vs superclass |
+| Signature | **Must differ** in parameters | **Must match** |
+| Return type | Can differ (but not alone) | Same or covariant |
+| Access | Any | Same or wider |
+| Decided by | Reference/argument **static types** | Actual **object** |
+| `static` / `private` / `final` | Can be overloaded | Cannot be overridden |
+| Needs inheritance | No | Yes |
+
+
+
+### 12. Full example: abstraction + polymorphism
+
+```java
+interface Notifier {                         // the WHAT
+    void send(String to, String message);
+}
+
+class EmailNotifier implements Notifier {    // HOW #1
+    @Override public void send(String to, String msg) { System.out.println("Email to " + to + ": " + msg); }
+}
+class SmsNotifier implements Notifier {      // HOW #2
+    @Override public void send(String to, String msg) { System.out.println("SMS to " + to + ": " + msg); }
+}
+
+class OrderService {
+    private final Notifier notifier;                     // depends on the abstraction
+    OrderService(Notifier notifier) { this.notifier = notifier; }   // injected
+    void placeOrder(String user) {
+        // ... business logic ...
+        notifier.send(user, "Order placed");             // polymorphic call
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        new OrderService(new EmailNotifier()).placeOrder("a@x.com");   // Email to a@x.com: Order placed
+        new OrderService(new SmsNotifier()).placeOrder("999");         // SMS to 999: Order placed
+        // Adding PushNotifier requires ZERO changes in OrderService.
+    }
+}
+```
+
+In tests you can pass a fake `Notifier` (mock). This is the real payoff of abstraction plus polymorphism.
+
+
+
+### 13. Interview questions
+
+| Question | Answer |
+|---|---|
+| What is abstraction? | Exposing *what* an object does while hiding *how*; achieved with abstract classes and interfaces (and plain classes at low level). |
+| Abstraction vs encapsulation? | Abstraction hides complexity and defines a contract (design). Encapsulation hides data and protects invariants (implementation). |
+| Can we instantiate an abstract class? | No. But its constructor runs when a subclass is created, and an anonymous subclass can be instantiated. |
+| Can an abstract class have a constructor? | Yes. It initializes shared state and runs via `super(...)`. |
+| Can an abstract class have no abstract methods? | Yes. It just prevents direct instantiation. |
+| Can `abstract` combine with `final`/`static`/`private`? | No: each conflicts with overriding. |
+| What if a subclass doesn't implement all abstract methods? | It must be declared `abstract` too, otherwise compile error. |
+| Can an interface have method bodies? | Yes: `default`, `static` (Java 8) and `private` (Java 9) methods. |
+| Can an interface have fields? | Only constants (`public static final`). No instance state. |
+| Why must implementing methods be `public`? | Interface methods are implicitly public, and overriding can't reduce visibility. |
+| Can a class implement multiple interfaces? | Yes; that's how Java gets multiple inheritance of type. Only one superclass. |
+| Abstract class vs interface? | See the table: shared state/code among related classes vs a capability contract; single vs multiple inheritance. |
+| What is a functional interface? | An interface with exactly one abstract method; usable with lambdas. |
+| What is a marker interface? | An interface with no methods used to tag a class (`Serializable`). |
+| Why did default methods get introduced? | Evolve interfaces (e.g. `Collection.stream`) without breaking existing implementers. |
+| What is polymorphism? | One interface, many implementations; the same call behaves differently based on context. |
+| Types of polymorphism in Java? | Compile-time (overloading) and runtime (overriding). |
+| Can we overload `main`? | Yes, but only `public static void main(String[])` is the entry point. |
+| Can we override a static method? | No. It is hidden, and the reference type decides which runs. |
+| Can we override a private method? | No. It isn't inherited; a child method with the same name is a new method. |
+| Can we overload by return type only? | No. Compile error. |
+| Are fields polymorphic? | No. Fields are hidden and resolved by the reference type. |
+| What decides which method runs at runtime? | The **actual object's class** (dynamic dispatch); the **reference type** only decides what the compiler allows. |
+| What is upcasting and downcasting? | Upcast: child to parent (implicit, safe). Downcast: parent to child (explicit, may throw `ClassCastException`); guard with `instanceof`. |
+| What is covariant return type? | An overriding method may return a subtype of the parent's return type. |
+| Can an overriding method throw a broader checked exception? | No. Same or narrower (unchecked are unrestricted). |
+| How does the JVM implement dynamic dispatch? | vtable lookup via `invokevirtual` on the object's actual class. |
+| What is "programming to an interface"? | Declare variables, parameters, and returns using the abstract type (`List`), not the concrete one (`ArrayList`). |
+
+
+
+### 14. Summary / mental model
+
+```
+ABSTRACTION                               POLYMORPHISM
+──────────────────────────────            ───────────────────────────────────
+WHAT vs HOW                               one call, many behaviours
+abstract class → family + shared code     compile-time: overloading (by argument types)
+interface      → capability contract      runtime:      overriding  (by actual object)
+
+Car c = new ElectricCar();                only INSTANCE METHODS dispatch dynamically
+c.drive();   // ElectricCar.drive()       static / private / final / fields: NOT polymorphic
+```
+
+**Remember:**
+1. Abstraction = expose the contract, hide the implementation. Encapsulation = protect the data.
+2. Abstract class: can't instantiate, may hold state and constructors, single inheritance. Interface: contract, no state, multiple implementation.
+3. Any abstract method forces `abstract` on the class; concrete subclasses must implement every abstract method.
+4. Interface methods are `public`; implementations must be `public`. Modern interfaces have `default`/`static`/`private` methods.
+5. Overloading = same name, different parameters, resolved at compile time by static types.
+6. Overriding = same signature in a subclass, resolved at runtime by the actual object. Use `@Override`.
+7. `static`, `private`, `final` methods and fields don't take part in overriding.
+8. The reference type limits **what you can call**; the object type decides **what runs**.
+9. Depend on abstractions, so adding a new implementation needs no changes to callers.
 
 
 
