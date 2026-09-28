@@ -205,18 +205,18 @@ Applets were deprecated around **JDK 10/11** (per the lecture's approximation) o
 
 #### Practice Questions
 
-**Basic**
-1. Define "platform" in the context of programming languages.
-2. What is the difference between source code, bytecode, and machine code?
-3. What does WORA stand for and what does it mean practically?
+**Basic**    
+1. Define "platform" in the context of programming languages.   
+2. What is the difference between source code, bytecode, and machine code?    
+3. What does WORA stand for and what does it mean practically?   
 
-**Intermediate**
-4. Explain, with an example, why the same C++ source file produces different binaries on Windows/x86 vs macOS/ARM.  
+**Intermediate**   
+4. Explain, with an example, why the same C++ source file produces different binaries on Windows/x86 vs macOS/ARM.    
 5. What is an ISA, and why does it differ between Intel and ARM processors?    
 6. If bytecode is platform-independent, why does the JVM need to be platform-dependent?  
 
-**Advanced / Interview-style**
-7. "Java solved portability by removing the need to compile per-platform." Critically evaluate this statement — is compilation truly eliminated, or just moved?  
+**Advanced / Interview-style**    
+7. "Java solved portability by removing the need to compile per-platform." Critically evaluate this statement — is compilation truly eliminated, or just moved?     
 8. Explain how Java's Sandbox Model relates architecturally to its portability solution. Why do both rely on the JVM specifically?    
 9. Why didn't C/C++ adopt a bytecode+VM model themselves, and why did Microsoft succeed in doing this with a *new* language (C#) instead of retrofitting C++?     
 10. A candidate says "Java is slower than C++, so portability doesn't matter today." How would you respond, using the historical argument from this lecture about processor speed trends?   
@@ -489,17 +489,17 @@ public class Demo {
 
 #### Practice Questions
 
-**Basic**
+**Basic**    
 1. Write the exact terminal commands to compile and then run a file named `App.java`.    
 2. What does JRE stand for, and what two components make it up?     
 3. True or False: The JDK contains the JRE within it.   
 
-**Intermediate**
+**Intermediate**   
 4. Explain the difference between a compiler and an interpreter using the "read all at once" vs "read line by line" framing.    
 5. List the three core responsibilities of the JVM (not just bytecode conversion).    
 6. Why can't you run a Java program using only a JVM, with no JRE?     
 
-**Advanced / Interview-style**
+**Advanced / Interview-style**    
 7. "Java is an interpreted language." Is this a fully accurate statement? Justify your answer using the compiled+interpreted hybrid model.   
 8. Explain how the JIT compiler decides what to compile vs. what the interpreter continues to handle. Why doesn't the JVM just JIT-compile everything on first execution?    
 9. In the 1990s, why did Java's designers choose an interpreter-first approach for the bytecode execution stage rather than a compiler, given that a compiler alone would technically produce faster steady-state code?    
@@ -912,33 +912,33 @@ int classCount = 5;
 
 #### Practice Questions
 
-**Basic**
+**Basic**    
 1. Write a declaration+definition statement for an `int` variable named `age` holding `25`.   
 2. What is the difference between an identifier and a literal? Give an example of each from the same line of code.   
 3. Which of Java's primitive types is 16 bits wide and used to represent a single character?   
 
-**Intermediate**
+**Intermediate**    
 4. Why does the following fail to compile, and how would you fix it?
    ```java
    float price = 19.99;
    ```
-5. Convert the decimal number `13` to binary, octal, and hexadecimal literal form as you would write each in Java source code.
-6. Explain, using the bit-position table, why `byte` can represent at most 256 distinct values but its range is −128 to 127, not 0 to 255.
+5. Convert the decimal number `13` to binary, octal, and hexadecimal literal form as you would write each in Java source code.    
+6. Explain, using the bit-position table, why `byte` can represent at most 256 distinct values but its range is −128 to 127, not 0 to 255.    
 7. What's wrong with this line, and why?
    ```java
    boolean isActive = 1;
    ```
 
-**Advanced / Interview-style**
-8. A teammate says "Java's `char` is basically the same as C's `char`, just wider." Correct this statement — what standard does each rely on, and why did Java need the wider type?  
-9. Explain why Java enforces static typing at compile time. What class of bugs does this catch that a dynamically typed language might not catch until runtime?  
+**Advanced / Interview-style**   
+8. A teammate says "Java's `char` is basically the same as C's `char`, just wider." Correct this statement — what standard does each rely on, and why did Java need the wider type?   
+9. Explain why Java enforces static typing at compile time. What class of bugs does this catch that a dynamically typed language might not catch until runtime?    
 10. Why does Java prefer `double` over `float` for virtually all real-world numeric work today, when historically `float` existed as the "lighter" option? Name at least two distinct reasons.   
 11. Explain the practical difference between declaration and definition using a concrete scenario (e.g., a calculator app reading two numbers from user input) — why can't you always combine them into one statement?   
 12. Java reserves the keywords `goto` and `const` but never uses them as functioning language features. Why do you think a language designer would reserve a word it doesn't intend to implement?
 
 
 
-### 4. How Negative Numbers & Floating-Point Numbers Are Stored in Memory
+## 4. How Negative Numbers & Floating-Point Numbers Are Stored in Memory
 
 
 
@@ -953,7 +953,7 @@ Both are classic interview topics because they reveal whether you understand wha
 
 
 
-## 1. How Negative Numbers Are Stored — Two's Complement
+### 1. How Negative Numbers Are Stored — Two's Complement
 
 #### Step-by-step recipe
 
@@ -1282,21 +1282,21 @@ Java provides a non-primitive type, **`BigDecimal`**, that stores decimal values
 
 #### Practice Questions
 
-**Basic**
-1. What does MSB stand for, and what does its value (0 vs 1) tell you about a stored integer?
-2. Name the two steps that convert one's complement into two's complement.
-3. How many total bits, sign bits, exponent bits, and mantissa bits does a `double` use?
+**Basic**   
+1. What does MSB stand for, and what does its value (0 vs 1) tell you about a stored integer?   
+2. Name the two steps that convert one's complement into two's complement.    
+3. How many total bits, sign bits, exponent bits, and mantissa bits does a `double` use?   
 
-**Intermediate**
-4. Manually compute the two's complement representation of `-5` as an 8-bit `byte`.
-5. Why is `127` chosen as the bias for `float`'s 8-bit exponent field? Show the formula.
-6. Explain, step by step, why storing `0.1` as a `float` will not round-trip to exactly `0.1` when printed with high decimal precision.
-7. What would happen (in terms of bit patterns) if Java used one's complement instead of two's complement to store `0`, and then someone wrote `-0` in code?
-
-**Advanced / Interview-style**
-8. Walk through, from first principles, why the exponent field in IEEE-754 uses a "biased" representation instead of storing a signed exponent directly (e.g., via two's complement, the same scheme used for integers).
-9. A junior developer is confused because `System.out.println(0.1f + 0.2f)` doesn't print exactly `0.3`. Explain why, referencing the mantissa truncation concept, and what data type/class they should use instead if exact decimal precision is required.
-10. Derive, without looking it up, why a `byte`'s legitimate positive range can never produce an MSB of 1 — connect this directly to why MSB is a safe and unambiguous sign indicator.
+**Intermediate**   
+4. Manually compute the two's complement representation of `-5` as an 8-bit `byte`.    
+5. Why is `127` chosen as the bias for `float`'s 8-bit exponent field? Show the formula.     
+6. Explain, step by step, why storing `0.1` as a `float` will not round-trip to exactly `0.1` when printed with high decimal precision.    
+7. What would happen (in terms of bit patterns) if Java used one's complement instead of two's complement to store `0`, and then someone wrote `-0` in code?    
+ 
+**Advanced / Interview-style**   
+8. Walk through, from first principles, why the exponent field in IEEE-754 uses a "biased" representation instead of storing a signed exponent directly (e.g., via two's complement, the same scheme used for integers).    
+9. A junior developer is confused because `System.out.println(0.1f + 0.2f)` doesn't print exactly `0.3`. Explain why, referencing the mantissa truncation concept, and what data type/class they should use instead if exact decimal precision is required.    
+10. Derive, without looking it up, why a `byte`'s legitimate positive range can never produce an MSB of 1 — connect this directly to why MSB is a safe and unambiguous sign indicator.    
 11. Compare the precision differences between `float` and `double` when representing `0.7`. Will `double` ever perfectly represent `0.7`? Why or why not?
 
 
@@ -1611,19 +1611,19 @@ double result = p1 + p2 + p3;
 
 
 #### Practice Questions
-
-**Basic**
+ 
+**Basic**   
 1. Is `long l = someIntVariable;` implicit or explicit? Why?
 2. What's the output of `System.out.println((int) 7.999);`?
 3. Write the corrected version of this broken line: `byte result = someIntVariable;`
 
-**Intermediate**
+**Intermediate**   
 4. Explain, using the modulo shortcut, why `(byte) 260` evaluates to `4`.   
 5. A developer writes `short s = 10; s = s * 3;` and gets a compile error. Explain exactly why, referencing type promotion rules, and provide the fix.   
 6. Why does casting `float` to `int` require an explicit cast even though both are 32-bit types, unlike casting `int` to `long`, which is implicit despite being a bit-width increase?   
 7. What is the result type of the expression `charVar + intVar`, and why?
 
-**Advanced / Interview-style**
+**Advanced / Interview-style**   
 8. Explain step by step what happens internally — at the bit level — when `int i = 1000; byte b = (byte) i;` executes. What value does `b` hold, and why?   
 9. Why can't Java allow even an explicit cast between `boolean` and `int`, when it allows explicit (if lossy) casts between every other primitive pair?   
 10. A candidate claims "type promotion and type casting are the same thing." Correct this — explain the distinct problem each one solves and give an example where you need both together in the same line of code.    
@@ -2059,18 +2059,18 @@ int result2 = (b + c) * d;  // parentheses override precedence — now b+c happe
 
 #### Practice Questions
 
-**Basic**
+**Basic**   
 1. What does `x %= 3;` expand to?   
 2. Given `int p = 5;`, what are the values of `p` and the printed result after `System.out.println(p--);`?  
 3. Write the truth table row for `A ^ B` when `A = 1, B = 1`.  
 
-**Intermediate**
+**Intermediate**   
 4. Explain why `byte b = 100; b = (byte)(b << 1);` produces a negative number, walking through the promotion and truncation steps.   
 5. What is `int i = 5; i = i << 34;` equivalent to, and why?   
 6. A developer writes `if (index >= 0 & index < array.length)`. What's the practical risk compared to using `&&`, even though the logical result is the same in normal cases?   
 7. Explain the difference between `>>` and `>>>` when right-shifting a negative number.   
 
-**Advanced / Interview-style**
+**Advanced / Interview-style**   
 8. Trace through, bit by bit, what happens internally when you execute `byte b = 1; int i = b << 7;` (note: assigning to an `int`, NOT casting back to `byte`) — what value does `i` actually hold, and why is it different from what you'd get by immediately casting the shift result to `byte`?   
 9. Why does Java cap shift amounts via modulo (32 for int, 64 for long) instead of simply defining the behavior as "shift out to zero" for amounts beyond the bit width?   
 10. A candidate claims "bitwise `&` and logical `&&` always produce identical results, so it doesn't matter which one I use." Under what circumstances would this claim be false, and why?   
@@ -2525,12 +2525,12 @@ Use case: when handling one case genuinely requires its own independent multi-wa
 
 #### Practice Questions
 
-**Basic**
+**Basic**   
 1. What data types are valid for a `switch` expression (pre-JDK 7)?  
 2. What does forgetting `break` in a switch case cause?   
 3. Write an `if-else-if` ladder that prints "negative", "zero", or "positive" based on an int variable `n`.   
 
-**Intermediate**
+**Intermediate**   
 4. Explain why the following code prints more than one message for `age = 70`, and rewrite it to fix the bug:
    ```java
    if (age > 60) { System.out.println("old"); }
@@ -2539,7 +2539,7 @@ Use case: when handling one case genuinely requires its own independent multi-wa
 5. Why can't you replace `if (score >= 90) {...} else if (score >= 80) {...}` with an equivalent `switch` statement directly?   
 6. Explain the difference between a `tableswitch` and a `lookupswitch`, and what property of the case values determines which one the compiler generates.   
 
-**Advanced / Interview-style**
+**Advanced / Interview-style**   
 7. Explain, using time complexity, exactly why a `switch` with dense integer cases is faster than the equivalent `if-else-if` ladder for a large number of cases.   
 8. A colleague says "switch is just syntactic sugar for if-else-if, so it never actually improves performance." Correct this claim using the jump-table concept, and describe under what specific condition the claim would actually be true (i.e., when might switch offer no meaningful performance benefit).   
 9. Why might a compiler choose NOT to build a `tableswitch` even when there are relatively few `case` labels, if those labels have very large gaps between their values (e.g., `case 1`, `case 1000000`)?   
@@ -3130,13 +3130,13 @@ System.out.println(i);   // RIGHT — i is still in scope here
 2. What is the key behavioral difference between `while` and `do-while`?  
 3. What does `continue` do differently from `break`?   
 
-**Intermediate**
+**Intermediate**     
 4. Explain why `for (int i = 1; i <= 10; i++);` (note the trailing semicolon) followed by an indented `System.out.println(i);` prints only once, if at all, and what the actual loop body is in this code.   
 5. Write a nested loop that prints a 5×5 grid of `*` characters, then modify it to print only a right-angle triangle.    
 6. A junior developer declares `for (short i = 0; i < 1000; i++)` to "save memory." Explain why this reasoning is flawed.   
 7. Why does `for (int i = 1, j = 10; i <= 5 && j >= 1; i++, j--)` work, but `for (int i = 1, j = 10; i <= 5, j >= 1; i++, j--)` does not?
 
-**Advanced / Interview-style**
+**Advanced / Interview-style**   
 8. In a triple-nested loop where you want to abort ALL THREE loops the moment a condition is met in the innermost one, write the labeled break statement(s) needed, and explain why an unlabeled `break` would be insufficient.   
 9. Explain, using the concept of scope, why the following fails to compile, and how you'd fix it:
    ```java
@@ -3624,17 +3624,17 @@ Just like `int sum = a + b;` stores an arithmetic result, `String fullName = a +
 
 #### Practice Questions
 
-**Basic**
+**Basic**   
 1. Write the declaration and definition (as two separate lines) for an `int` array of size 5.   
 2. What is the index of the last element in an array of length 10?    
 3. What does `myArray.length` return, and is it a method call or a property access?    
 
-**Intermediate**
+**Intermediate**   
 4. Explain why `int[][] grid = new int[4][4];` followed by `grid[4][0] = 1;` throws an exception, referencing the valid index range.   
 5. Write a jagged 2D array representing 3 students with 2, 4, and 3 subjects respectively (values don't matter, just the structure), and write the nested loop that correctly prints it regardless of each row's length.   
 6. Why does `firstName + lastName` (with no space) concatenate without any separator, and how would you fix it to include one?
 
-**Advanced / Interview-style**
+**Advanced / Interview-style**   
 7. Explain, using the "array of arrays" model, why a 2D array in Java can have jagged rows, but a true fixed-size matrix (as in some other languages with genuinely contiguous 2D memory) cannot.   
 8. A colleague writes a nested loop using `marks[0].length` as the bound for every row's inner loop, assuming all rows are the same size. Under what circumstance does this silently produce wrong output rather than crashing, and under what circumstance does it crash?   
 9. Explain the internal difference between `int[] arr = {1, 2, 3};` and `int[] arr = new int[3];` followed by manual assignment — do they produce the same runtime structure, just written differently, or is something fundamentally different happening?   
@@ -3968,20 +3968,20 @@ cache — no need to go back to RAM at all.
 
 #### Practice Questions
 
-**Basic**
+**Basic**   
 1. What does a reference variable actually store — the data itself, or something else?
 2. Write the random access formula in general form.   
 3. Why is `boolean`'s size not fixed by the Java Language Specification?    
 
-**Intermediate**
+**Intermediate**   
 4. Given a `long[]` array with base address 1000, compute the byte address of `arr[5]`.     
 5. Explain, step by step, what "reading a reference" means when accessing `arr[i]` in a 2D array, before the second formula application even happens.    
 6. Why does accessing an out-of-bounds array index not simply return garbage data, but instead throw an exception?   
 
-**Advanced / Interview-style**
+**Advanced / Interview-style**   
 7. Explain why array random access is considered O(1) even though, for a 2D or 3D array, the JVM technically performs multiple formula applications (one per dimension) rather than just one.    
 8. A candidate claims "arrays are fast because of random access." Push back on this by explaining the *additional* CPU-caching benefit that contiguous memory provides beyond the O(1) access guarantee itself.    
-9. Why can't the address-formula approach work for a data structure whose elements are NOT contiguous in memory (e.g., a linked list)? Tie your answer back to what specifically the random-access formula depends on.    
+9. Why can't the address-formula approach work for a data structure whose elements are NOT contiguous in memory (e.g., a linked list)? Tie your answer back to what specifically the random-access formula depends on.      
 10. Explain why a reference variable pointing to a `String` takes a fixed, predictable number of bytes (e.g., 4) in the containing array, even though the `String` it points to can be arbitrarily long.
 
 ## 11. Functions, Overloading, Scope & Recursion
