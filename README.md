@@ -4977,9 +4977,9 @@ Name: Aditya, Age: 28, Roll No: 1001, College: IIT Guwahati
 Name: Rohit, Age: 28, Roll No: 102, College: IIT Guwahati
 ```
 
----
 
-## 14. Key Interview Points
+
+### 14. Key Interview Points
 
 | Question | Answer |
 |---|---|
@@ -4997,7 +4997,7 @@ Name: Rohit, Age: 28, Roll No: 102, College: IIT Guwahati
 
 
 
-## 15. Quick Summary / Mental Model
+### 15. Quick Summary / Mental Model
 
 ```
 REAL WORLD                    JAVA (Programming World)
@@ -5023,6 +5023,2329 @@ Access attributes/methods     Dot operator:  s1.name  /  s1.print()
 > 2. **Inheritance** — a class can inherit from another class
 > 3. **Polymorphism** — one interface, many implementations
 > 4. **Abstraction** — hiding implementation details, showing only what's necessary
+
+
+## 13. Constructors, `this` Keyword & Constructor Chaining
+
+> Source: Coder Army Core Java series, Lecture 13 (continuation of OOP)
+> Depth level: 2–3 YOE — covers default values, the "when does Java auto-generate a constructor" rule, `this(...)` chaining rules, and the classic interview traps
+
+
+### 1. Real-World Hook
+
+A Swiggy `Order` object is created the moment you tap "Place Order". If the object comes into existence with `orderId = 0`, `restaurant = null`, `status = null`, any downstream code (payment, delivery assignment) can crash or, worse, silently process garbage. You want the object to be **valid from the instant it is created**. That is the problem constructors solve.
+
+
+### 2. Default Values of Instance Variables
+
+```java
+class Student {
+    String name;
+    int age;
+    int rollNumber;
+    String college;
+}
+
+Student s1 = new Student();
+System.out.println(s1.name + " " + s1.age + " " + s1.rollNumber + " " + s1.college);
+// null 0 0 null
+```
+
+No compile error — instance variables get **default values** automatically.
+
+| Data type | Default value |
+|---|---|
+| Integer types (`byte`, `short`, `int`, `long`) | `0` |
+| Floating point (`float`, `double`) | `0.0` |
+| `boolean` | `false` |
+| `char` | `'\u0000'` (null character) — not covered in the lecture, but the same rule |
+| Any non-primitive / reference (`String`, arrays, objects) | `null` |
+
+> **`null` = "this reference points to nothing."** Reference variables (like `String college`) hold an address; `null` means no address yet. (`NullPointerException` and why `null` is dangerous come later.)
+
+
+### 3. Instance Variables vs. Local Variables
+
+| | Instance variable | Local variable |
+|---|---|---|
+| Declared | Inside a class, outside methods | Inside a method / block |
+| Lives in | **Heap** (as part of the object) | **Stack** (for primitives) |
+| Lifetime | As long as the object lives | Until its block/method ends |
+| Default value | **Yes** (0 / 0.0 / false / null) | **No** — must be initialized before use |
+
+```java
+public static void main(String[] args) {
+    int x;
+    System.out.println(x);   // WRONG: compile error — "variable x might not have been initialized"
+}
+```
+
+**Why the difference (the instructor's reasoning):** objects on the heap tend to live long and be reused, so Java guarantees a safe starting state. Local variables have very limited scope, so Java skips auto-initialization (an optimization) and instead **forces you to assign a value** before reading — this also catches a whole class of bugs at compile time.
+
+- Class-body variables → called **instance variables** (they represent an object's *data/characteristics*).
+- Class-body methods → called **instance methods** (they represent *behaviours*).
+
+### 4. The Problem Constructors Solve
+
+```java
+Student s1 = new Student();
+s1.name = "Aditya";
+s1.age = 28;
+s1.rollNumber = 1001;
+s1.college = "IIT Guwahati";
+```
+
+Problems:
+1. **Tedious** — one line per field, per object.
+2. **Easy to forget** a field (e.g., someone later adds `grades` and you never set it) → silently gets the default value.
+3. Nothing **forces** you to provide valid data at creation time.
+
+We want to supply values **at the moment the object is constructed**.
+
+
+
+### 5. What Is a Constructor
+
+> A **constructor** is a special method that runs when an object is created and is used to **initialize** that object's state.
+
+```java
+class Student {
+    String name; int age; int rollNumber; String college;
+
+    Student() {                    // constructor
+        name = "Aditya";
+        age = 28;
+        rollNumber = 1001;
+        college = "IIT Guwahati";
+    }
+}
+
+Student s1 = new Student();        // all four fields are set automatically
+```
+
+#### Rules of a constructor
+
+1. **Name must be exactly the class name.**
+2. **No return type — not even `void`.**
+3. It is invoked as part of object creation (`new ClassName(...)`).
+4. Its purpose is to **initialize** the new object.
+5. It can be **overloaded**, like any method.
+
+```java
+// WRONG: adding a return type turns it into an ordinary method that merely happens to share the class name
+void Student() { ... }
+
+// RIGHT: no return type at all
+Student() { ... }
+```
+
+#### What `new Student()` actually does
+
+```
+Student s1 = new Student();
+   │            │      └── () = the CONSTRUCTOR CALL
+   │            └── 'new' allocates the object in heap memory
+   └── s1 (a reference variable in stack) stores the object's address
+```
+
+> **Correction to a common belief:** the constructor isn't "automatically called by magic." The `Student()` part of `new Student()` **is** the call — it's just built into the syntax, so we don't notice it as a method call.
+
+```
+STACK                    HEAP
+┌────────┐               ┌───────────────────────────────┐
+│ s1→addr│──────────────→│ name="Aditya", age=28,        │
+└────────┘               │ rollNumber=1001, college=...  │
+                         └───────────────────────────────┘
+```
+
+
+### 6. Default Constructor
+
+> **Java requires every class to have a constructor.** If you don't write any, the compiler silently inserts an empty **default constructor**.
+
+```java
+class Student {
+    String name; int age;
+    // you wrote no constructor →  Java adds:  Student() { }
+}
+```
+
+- The compiler-generated one takes no parameters and has an empty body, so fields keep their **default values** (null/0/false).
+- This is why `new Student()` always worked in earlier lectures even though we never wrote a constructor.
+
+#### The critical rule
+
+> **The default constructor is generated ONLY if you define NO constructor of your own.** The moment you write *any* constructor (default-style or parameterized), Java stops generating one.
+
+```java
+class Student {
+    Student(String n, int a) { ... }     // you defined one constructor
+}
+
+Student s2 = new Student();              // WRONG: compile error — "constructor Student() is undefined"
+```
+
+Fix: add your own no-arg constructor explicitly (see overloading below).
+
+
+
+### 7. Parameterized Constructor
+
+Hard-coding "Aditya/28/1001" inside the constructor is useless for real objects. Instead, accept values as parameters:
+
+```java
+class Student {
+    String name; int age; int rollNumber; String college;
+
+    Student(String n, int a, int rn, String c) {
+        name = n;
+        age = a;
+        rollNumber = rn;
+        college = c;
+    }
+}
+
+Student s1 = new Student("Aditya", 28, 1001, "IIT Guwahati");
+```
+
+Benefits: values are supplied **at creation**, and the compiler **forces** you to supply all of them (you can't forget one).
+
+
+
+### 8. Constructor Overloading
+
+Same idea as method overloading — multiple constructors, different parameter lists:
+
+```java
+Student() { }                                            // no-arg
+Student(String n, int a, int rn, String c) { ... }       // full
+
+Student s1 = new Student();                              // valid — no-arg exists
+Student s2 = new Student("Rohit", 28, 102, "IIT Guwahati");
+```
+
+Overloading legality is identical to methods (differ by **number**, **type**, or **order** of parameters; never by return type — constructors have none).
+
+
+### 9. The `this` Keyword
+
+> **`this` = a reference to the current object** (the object on which the constructor or method is currently executing).
+
+#### Use 1 — resolve name clashes between parameters and fields
+
+```java
+// WRONG: parameter shadows the field — assigns the parameter to itself, field never set
+Student(String name, int age) {
+    name = name;        // compiler warning: "assignment to variable name has no effect"
+    age = age;
+}
+
+// RIGHT: 'this.field' = the object's field; bare name = the parameter
+Student(String name, int age) {
+    this.name = name;
+    this.age = age;
+}
+```
+
+- `this.name` → the **instance variable** of the object being built.
+- `name` (bare) → the **parameter** (local scope wins when both share a name).
+- Convention: use the **same names** for parameters and fields plus `this.` — it's the most readable form. (If names differ, `this.` is optional, since there's no ambiguity.)
+
+> Think of `this` as the same kind of thing as `s1` in `s1.name`, except `s1` is the *outside* name of the object and `this` is the object's way of referring to *itself* from the inside.
+
+#### Use 2 — call another constructor of the same class: `this(...)`
+
+Covered in the next section.
+
+
+
+### 10. Constructor Chaining with `this(...)`
+
+Suppose you want to allow creating a `Student` with 0, 1, 2, 3 or 4 pieces of information. Naively:
+
+```java
+Student() { }
+Student(String name) { this.name = name; }
+Student(String name, int age) { this.name = name; this.age = age; }
+Student(String name, int age, int rollNumber) { this.name = name; this.age = age; this.rollNumber = rollNumber; }
+Student(String name, int age, int rollNumber, String college) {
+    this.name = name; this.age = age; this.rollNumber = rollNumber; this.college = college;
+}
+```
+
+Assignment logic is **duplicated** across constructors. Instead, make every constructor delegate to the **most complete one**.
+
+#### Style A — every constructor calls the full constructor
+
+```java
+Student() {
+    this("Unknown", 0, 0, "Unknown");
+}
+Student(String name) {
+    this(name, 0, 0, "Unknown");
+}
+Student(String name, int age) {
+    this(name, age, 0, "Unknown");
+}
+Student(String name, int age, int rollNumber) {
+    this(name, age, rollNumber, "Unknown");
+}
+Student(String name, int age, int rollNumber, String college) {    // the ONLY one doing real assignment
+    this.name = name;
+    this.age = age;
+    this.rollNumber = rollNumber;
+    this.college = college;
+}
+```
+
+#### Style B — each constructor calls the next-bigger one (a chain)
+
+```java
+Student()                      { this("Unknown"); }
+Student(String name)           { this(name, 0); }
+Student(String name, int age)  { this(name, age, 0); }
+Student(String name, int age, int rollNumber) { this(name, age, rollNumber, "Unknown"); }
+Student(String name, int age, int rollNumber, String college) { /* real assignments */ }
+```
+
+Also using `"Unknown"` instead of `null` for defaults is deliberate — avoiding `null` where you can prevents `NullPointerException`s later.
+
+#### Execution order — trace `new Student()` in Style B (with a print in each constructor)
+
+```
+new Student()                → enters constructor #1 → its FIRST line is this("Unknown")
+  → enters constructor #2   → first line is this(name, 0)
+    → enters constructor #3 → first line is this(name, age, 0)
+      → enters constructor #4 → first line is this(name, age, rollNumber, "Unknown")
+        → enters constructor #5 → assigns fields → prints "I'm in fifth constructor"
+      ← back in #4 → prints "I'm in fourth constructor"
+    ← back in #3 → prints "I'm in third constructor"
+  ← back in #2 → prints "I'm in second constructor"
+← back in #1 → prints "I'm in first constructor"
+```
+
+**Output order: fifth, fourth, third, second, first** — same "go deep, then unwind" behaviour as function chaining/recursion.
+
+#### Rule: `this(...)` must be the FIRST statement
+
+```java
+// WRONG: compile error — "call to this must be first statement in constructor"
+Student(String name) {
+    System.out.println("hi");
+    this(name, 0);
+}
+
+// RIGHT
+Student(String name) {
+    this(name, 0);
+    System.out.println("hi");
+}
+```
+
+> Why: the object must be fully initialized by the delegated constructor **before** any of this constructor's own code runs. (Java also forbids a constructor cycle — `A()` → `B()` → `A()` — as a compile error.)
+
+
+
+### 11. Interview Traps
+
+#### Can you call a constructor manually, like a normal method?
+
+> **No.** A constructor can be invoked in exactly **two** ways:
+> 1. With `new ClassName(...)` (object creation), or
+> 2. From another constructor of the same class via `this(...)` (or a parent's via `super(...)` — next lecture).
+
+```java
+Student s = new Student("A", 1, 2, "X");
+s.Student("B", 3, 4, "Y");     // WRONG: not allowed — constructors aren't ordinary methods
+```
+
+#### What if `new` can't get memory?
+
+`new` allocates on the **heap at runtime**. If the heap is full and cannot satisfy the request, the JVM throws an error at runtime.
+
+> **Precision note:** the instructor calls this a "runtime exception"; strictly, it is `java.lang.OutOfMemoryError` — a subclass of **`Error`**, not `Exception`. Good interview answer: *"`new` can fail with `OutOfMemoryError` if the heap has insufficient space; it's an unchecked `Error`, typically not something you catch."*
+
+
+
+#### Quick Self-Check
+
+> **Q1.** Why does `new Student()` compile even if the class has no constructor, but fail after you add only a parameterized constructor?
+
+*Answer:* If a class declares no constructor, the compiler inserts an empty default one. Once you declare any constructor, the compiler no longer generates the default — so `new Student()` has no matching constructor unless you write a no-arg one yourself.
+
+> **Q2.** Why don't local variables get default values while instance variables do?
+
+*Answer:* Instance variables live in heap objects that persist and are shared, so Java guarantees a safe starting state. Local variables have tiny scope, so Java skips default initialization (optimization) and instead forces you to assign before use, turning "forgot to initialize" into a compile error.
+
+> **Q3.** In `Student(String name) { name = name; }`, what happens?
+
+*Answer:* The parameter shadows the field, so the parameter is assigned to itself and the field is never set (compiler warns "assignment has no effect"). Fix with `this.name = name;`.
+
+> **Q4.** What is the output order for a 5-level `this(...)` constructor chain that prints in each constructor?
+
+*Answer:* The deepest constructor's print comes first; prints appear in the reverse order of the calls (fifth, fourth, third, second, first), because each constructor finishes only after the one it delegated to returns.
+
+#### Golden Rules / Checklist
+
+- [ ] Instance variables get defaults: numeric `0`, floating `0.0`, `boolean false`, references `null`. **Local variables get none** — must be initialized before use.
+- [ ] Instance variables/methods = data/behaviour of an object; instance variables live in the **heap** inside the object.
+- [ ] Constructor rules: **same name as class**, **no return type (not even `void`)**, used to initialize the object, can be overloaded.
+- [ ] `new ClassName(args)` = allocate object in heap **and** call the matching constructor; the reference is stored in a stack variable.
+- [ ] **Default constructor is auto-generated only when you write no constructor.** Write any constructor → it's gone.
+- [ ] Parameterized constructors force callers to supply required data at creation time.
+- [ ] `this` = reference to the current object; use `this.field = param;` when names clash.
+- [ ] `this(...)` calls another constructor of the same class; it **must be the first statement** in the constructor.
+- [ ] Constructor chaining removes duplicated assignment logic — funnel everything into one "master" constructor.
+- [ ] Prefer safe defaults like `"Unknown"` over `null` where reasonable.
+- [ ] A constructor **cannot** be called manually like a method — only via `new` or `this(...)`/`super(...)`.
+- [ ] `new` can fail with `OutOfMemoryError` when heap space is insufficient.
+
+
+
+#### Practice Questions
+
+**Basic**   
+1. What are the five rules for writing a constructor?    
+2. What default value does each of `int`, `double`, `boolean`, `String` instance variables get?    
+3. Why does the following not compile? `int count; System.out.println(count);` (inside `main`)    
+
+**Intermediate**    
+4. A class `Payment` has only `Payment(int amount)`. Why does `new Payment()` fail, and give two ways to fix it.   
+5. Rewrite this class so constructor logic is not duplicated, using `this(...)`:
+   ```java
+   Order() { id = 0; status = "NEW"; }
+   Order(int id) { this.id = id; status = "NEW"; }
+   Order(int id, String status) { this.id = id; this.status = status; }
+   ```
+6. Why does `this(...)` have to be the first line of a constructor?
+  
+**Advanced / Interview-style**   
+7. Trace the output and explain the order: a 3-constructor chain where each prints "In constructor N" *after* its `this(...)` call.    
+8. Explain why `void Student() { }` inside class `Student` is not a constructor, and what would happen when you call `new Student()`.    
+9. Why can't you call a constructor manually on an existing object? What two mechanisms *can* invoke a constructor?    
+10. Distinguish `OutOfMemoryError` from `Exception` — which one can `new` throw, and why is it typically not handled?   
+
+
+## 14. Object Memory Layout, Call by Value & Shallow vs Deep Copy
+
+
+### 1. How Big Is an Object?
+
+Primitives have fixed sizes. Objects need a formula.
+
+| Type | Size |
+|---|---|
+| `byte` / `boolean` | 1 byte |
+| `short` / `char` | 2 bytes |
+| `int` / `float` | 4 bytes |
+| `long` / `double` | 8 bytes |
+| **Reference** (any object variable) | **4 bytes** (compressed oops, default) or **8 bytes** (large heap / compression off) |
+
+```java
+class Student {
+    String name;      // reference -> 4 bytes
+    int    age;       // 4
+    int    rollNumber;// 4
+    String college;   // reference -> 4
+}
+```
+
+Naive sum = 4 + 4 + 4 + 4 = **16 bytes**. That is **not** the object's size. The object also stores a **header** and may need **padding**.
+
+> **Important:** a reference field counts only **4 (or 8) bytes**: the address. The `String` object it points to is a *separate* heap object and is **not** included. This is called the **shallow size**.
+
+> **⚠ Correction (where references live):** the video says reference variables live on the stack. That is only true for **locals/parameters**. A reference that is a **field** (like `name` above) lives **inside the object on the heap**.
+
+> **Note:** "objects always live on the heap" is the programming model. The JIT can use **escape analysis** to scalar-replace or eliminate allocations that never escape a method, so no heap object may exist at runtime.
+
+
+
+### 2. Anatomy of an Object
+
+```
+┌────────────────────────────────────────────────────────────┐
+│ OBJECT HEADER                                              │
+│   ┌──────────────────────────────┬────────────────────┐    │
+│   │ Mark word           (8 bytes)│ Class pointer      │    │
+│   │ hash, GC age, lock state     │ (4 bytes, klass)   │    │
+│   └──────────────────────────────┴────────────────────┘    │
+│   (arrays add a 4-byte LENGTH field -> 16-byte header)     │
+├────────────────────────────────────────────────────────────┤
+│ INSTANCE DATA (fields; JVM may reorder them)               │
+├────────────────────────────────────────────────────────────┤
+│ PADDING (so total size is a multiple of 8)                 │
+└────────────────────────────────────────────────────────────┘
+```
+
+| Part | Size | What it holds |
+|---|---|---|
+| **Mark word** | 8 B | Identity hash code (lazily computed), GC age/mark bits, lock state (thin lock / monitor pointer). Used by `synchronized`, `hashCode()`, GC |
+| **Class pointer (klass word)** | 4 B (8 B if compressed class pointers off) | Pointer to the **class metadata in Metaspace** (field layout, vtable, name). Used by `getClass()`, virtual dispatch, `instanceof` |
+| **Instance data** | sum of fields | Your fields (own + inherited) |
+| **Padding** | 0-7 B | Round total up to a multiple of 8 |
+
+> **⚠ Correction:** the video says the class pointer is "like the `this` reference stored in the object". It is not. It does **not** point to the object itself; it points to the **class's metadata (Klass) in Metaspace**, shared by all instances of that class.
+
+> **Newer JDKs:** *compact object headers* shrink the header to **8 bytes** (JEP 450 experimental in JDK 24, JEP 519 product feature in JDK 25, opt-in via `-XX:+UseCompactObjectHeaders`). Verify on your JDK; the default header is still 12 bytes.
+
+```
+Memory picture of one Student (offsets illustrative, JVM may reorder fields)
+
+offset  size  content
+  0      8    mark word
+  8      4    class pointer
+ 12      4    name       (reference)
+ 16      4    age
+ 20      4    rollNumber
+ 24      4    college    (reference)
+ 28      4    padding
+────────────
+ 32 bytes total
+```
+
+
+
+### 3. Worked Calculation
+
+```
+size = align8( header (12) + fields (with alignment gaps) )
+```
+
+**Student:** 12 + 16 = 28 -> next multiple of 8 is 32 -> **4 bytes padding** -> **32 bytes**.
+
+```java
+class Person { byte age; }
+```
+12 (header) + 1 (byte) = 13 -> next multiple of 8 is **16** -> 3 bytes padding -> **16 bytes**.
+
+> **⚠ Correction (arithmetic):** the video ends this example with **18 bytes**. That is wrong: 12 + 1 + 3 = **16**. An object's size is always a multiple of 8, so 18 is impossible.
+
+| Class | Header | Fields | Sum | Padded size |
+|---|---|---|---|---|
+| `class Empty {}` | 12 | 0 | 12 | **16** |
+| `class Person { byte age; }` | 12 | 1 | 13 | **16** |
+| `class Student { String; int; int; String }` | 12 | 16 | 28 | **32** |
+| `class L { long v; }` | 12 | 8 (needs 8-byte alignment) | 12 + 4 gap + 8 | **24** |
+| `class M { int a; long b; }` | 12 | int fills the 4-byte gap | 12 + 4 + 8 | **24** |
+| `Integer` (wrapper) | 12 | 4 | 16 | **16** |
+| `int[10]` | 16 (12 + 4 length) | 40 | 56 | **56** |
+
+Two things to notice in the table:
+- **Internal padding:** a `long`/`double` must sit at an offset divisible by 8, so a gap can appear *inside* the object (`class L`).
+- **Field reordering:** the JVM does not lay fields out in source order. It packs them to fill gaps (`class M` costs no more than `class L`).
+
+> **Why `Integer` (16 B) + reference (4 B) = 20 B vs `int` = 4 B** is the reason boxed collections (`List<Integer>`) use several times the memory of `int[]`.
+
+
+
+### 4. Why Padding? (Alignment)
+
+The JVM aligns every object to **8 bytes** (`-XX:ObjectAlignmentInBytes=8`, default).
+
+| Reason | Detail |
+|---|---|
+| **Hardware-friendly access** | Aligned words/fields can be read in one operation, and objects don't straddle cache-line boundaries as often |
+| **Compressed oops** | Because every object address is a multiple of 8, the low 3 bits are always 0, so a **32-bit reference can be shifted left by 3** to address up to **32 GB**. This is why heaps just under ~32 GB keep 4-byte references and heaps above it jump to 8-byte references |
+
+> **⚠ Refinement:** the video explains padding as "the CPU fetches 8-byte chunks". Directionally right, but the sharper interview answer is **alignment + compressed oops**. Also, padding isn't "optional": if the sum is already a multiple of 8, padding is simply 0.
+
+> **Gotcha:** setting `-Xmx` above ~32 GB can make your app use **more memory than a 30 GB heap**, because every reference doubles from 4 to 8 bytes.
+
+
+
+### 5. Verifying Sizes
+
+```java
+// Add dependency: org.openjdk.jol:jol-core
+import org.openjdk.jol.info.ClassLayout;
+import org.openjdk.jol.vm.VM;
+
+System.out.println(VM.current().details());                    // shows reference size, alignment
+System.out.println(ClassLayout.parseClass(Student.class).toPrintable());  // offsets, gaps, total
+```
+
+| Tool | Use |
+|---|---|
+| **JOL (Java Object Layout)** | Exact layout of a class/instance (offsets, padding) |
+| `Instrumentation.getObjectSize(obj)` | Shallow size from a java agent |
+| `-XX:+PrintFlagsFinal` | See `UseCompressedOops`, `UseCompressedClassPointers`, `ObjectAlignmentInBytes` |
+| Heap dump + Eclipse MAT / VisualVM | **Retained size**: the object plus everything only it keeps alive |
+
+| Term | Meaning |
+|---|---|
+| **Shallow size** | The object itself (header + fields + padding). References count as 4/8 bytes only |
+| **Retained size** | Memory freed if this object were collected (object + exclusively-owned referents) |
+
+This is what the video computed: **shallow size**.
+
+
+
+### 6. Call by Value: Primitives
+
+```java
+public class Demo {
+    static void addTen(int x, int y) { x = x + 10; y = y + 10; }
+
+    public static void main(String[] args) {
+        int x = 4, y = 5;
+        System.out.println(x + " " + y);   // 4 5
+        addTen(x, y);
+        System.out.println(x + " " + y);   // 4 5   <- NOT 14 15
+    }
+}
+```
+
+The `x` and `y` inside `addTen` are **new variables** in a new stack frame; the argument **values are copied** into them.
+
+```
+main frame                     addTen frame (new)
+┌─────────────┐                ┌─────────────┐
+│ x = 4       │ ── copy ────►  │ x = 4 -> 14 │
+│ y = 5       │ ── copy ────►  │ y = 5 -> 15 │
+└─────────────┘                └─────────────┘
+ unchanged                      frame popped on return; copies vanish
+```
+
+> **Note:** `addTen` is `static` because `main` is static and can call only static methods directly. Instance methods need an object (`obj.method()`).
+
+
+
+### 7. Call by Value: Objects (the part that confuses everyone)
+
+```java
+class Point { int x, y; Point(int x, int y) { this.x = x; this.y = y; } }
+
+static void addTen(Point p) { p.x = p.x + 10; p.y = p.y + 10; }
+
+Point r1 = new Point(4, 5);
+addTen(r1);
+System.out.println(r1.x + " " + r1.y);   // 14 15   <- changed!
+```
+
+Still call by value. **What is copied is the reference (the address), not the object.**
+
+```
+STACK                                          HEAP
+main frame                                     ┌───────────────┐
+┌──────────────┐                               │ Point         │
+│ r1 = @1001 ──┼──────────────────────────────►│ x = 4 -> 14   │
+└──────────────┘                               │ y = 5 -> 15   │
+addTen frame                                   └───────────────┘
+┌──────────────┐                                       ▲
+│ p  = @1001 ──┼───────────────────────────────────────┘
+└──────────────┘   (copy of the ADDRESS, same object)
+
+addTen returns -> frame popped -> p disappears.
+The Point object stays alive (r1 still reaches it) and keeps the changes.
+```
+
+> **⚠ Correction:** the video says that when `p` disappears "the garbage collector removes the pointer". No. `p` is a **local in the popped stack frame**; it goes away with the frame. The **GC** reclaims *objects* that are unreachable, and this object is still reachable through `r1`.
+
+> **⚠ Correction:** the video presents its second example as "call by reference". The *effect* looks like it, but the mechanism is **always** call by value.
+
+
+
+### 8. Java Is Strictly Pass-by-Value (Proof)
+
+If Java were pass-by-reference, a `swap` would work. It doesn't.
+
+```java
+// ❌ WRONG expectation: "objects are passed by reference, so this swaps"
+static void swap(Point a, Point b) { Point t = a; a = b; b = t; }
+
+Point p2 = new Point(1, 2), p3 = new Point(3, 4);
+swap(p2, p3);
+System.out.println(p2.x + " " + p3.x);   // 1 3   <- NOT swapped
+```
+
+```java
+// Reassigning the parameter only changes the LOCAL COPY of the address
+static void reassign(Point p) {
+    p = new Point(99, 99);   // p now points to a new object; caller's variable untouched
+    p.x += 1;
+}
+```
+
+```
+Before reassign:   r1 ─► @1001 ─► Point(14,15)          p ─► @1001
+After  p = new..:  r1 ─► @1001 ─► Point(14,15)          p ─► @2002 ─► Point(99,99)
+```
+
+| What you do to the parameter | Visible to caller? | Why |
+|---|---|---|
+| `x = x + 10` (primitive) | ❌ No | Copy of the value |
+| `p.x += 10` (**mutate** the object) | ✅ Yes | Same object via copied address |
+| `p = new Point(...)` (**reassign**) | ❌ No | Only the local copy of the address changes |
+| `p = null` | ❌ No | Same reason |
+| `str = str + "x"` (`String`) | ❌ No | `String` is immutable **and** you reassigned |
+| `list.add(item)` / `arr[0] = 5` | ✅ Yes | Mutates the shared object |
+| `arr = new int[5]` | ❌ No | Reassignment |
+
+> **JS contrast:** identical semantics to JavaScript. Primitives are copied; for objects the *reference* is copied. Mutation is visible, reassigning the parameter isn't. Java simply has no escape hatch either.
+
+> **Interview trap:** *"Primitives are pass-by-value and objects are pass-by-reference. True?"* **False.** Everything is pass-by-value. For objects, the value passed is the reference. Saying "both" is the classic fresher mistake (the video calls this out too).
+
+**How to emulate "output parameters"** (Java has no `ref`/`out`): return a value or a small result object/`record`, or pass a holder such as a one-element array.
+
+
+
+### 9. Reference Copy vs Shallow Copy vs Deep Copy
+
+Three different things people call "copying":
+
+```java
+Point r1 = new Point(4, 5);
+Point r3 = r1;              // (A) reference copy: NO new object
+Point r2 = new Point(r1);   // (B) copy constructor: NEW object, fields copied
+```
+
+```java
+Point(Point p) { this.x = p.x; this.y = p.y; }   // copy constructor
+// Accessing p.x is legal even if x is private: access is class-scoped, not object-scoped
+```
+
+```
+(A) r3 = r1                          (B) r2 = new Point(r1)
+
+STACK        HEAP                    STACK        HEAP
+r1 ──┐   ┌────────────┐              r1 ───►  ┌────────────┐
+     ├──►│ Point 4,5  │                        │ Point 4,5  │
+r3 ──┘   └────────────┘              r2 ───►  ┌────────────┐
+                                               │ Point 4,5  │  (independent)
+r1 == r3  ->  true                             └────────────┘
+change via r3 shows in r1            r1 == r2  ->  false
+                                     change via r2 does NOT show in r1
+```
+
+> **⚠ Correction (terminology):** the video calls `r2 = new Point(r1)` a **deep copy** and `r3 = r1` a **shallow copy**. That is not the standard meaning:
+> - `r3 = r1` is **not a copy of the object at all**. It's an **alias / reference copy**.
+> - `new Point(r1)` creates a **new object**. Whether it is *shallow* or *deep* depends on **how it treats reference fields**, and `Point` has none (only `int`s), so the distinction doesn't even arise yet.
+
+#### The real definition
+
+| Copy type | New outer object? | Nested objects (reference fields) |
+|---|---|---|
+| **Alias** (`b = a`) | ❌ No | Everything shared |
+| **Shallow copy** | ✅ Yes | **Shared** (only the reference values are copied) |
+| **Deep copy** | ✅ Yes | **Recursively cloned** (nothing mutable shared) |
+
+```java
+class Address { String city; Address(String c) { city = c; } }
+
+class Person {
+    String  name;
+    Address address;
+    Person(String name, Address address) { this.name = name; this.address = address; }
+
+    // ❌ SHALLOW: new Person, but SAME Address object
+    static Person shallowCopy(Person p) { return new Person(p.name, p.address); }
+
+    // ✅ DEEP: new Person AND new Address
+    static Person deepCopy(Person p)    { return new Person(p.name, new Address(p.address.city)); }
+}
+
+Person orig    = new Person("Aditya", new Address("Guwahati"));
+Person shallow = Person.shallowCopy(orig);
+Person deep    = Person.deepCopy(orig);
+
+orig.address.city = "Mumbai";
+System.out.println(shallow.address.city);   // Mumbai     <- leaked through shared Address
+System.out.println(deep.address.city);      // Guwahati   <- independent
+```
+
+```
+shallow copy:                          deep copy:
+
+orig ──► Person ──┐                    orig ──► Person ──► Address("Mumbai")
+                  ├──► Address         deep ──► Person ──► Address("Guwahati")
+shallow ► Person ─┘    (shared!)
+```
+
+> **Rule of thumb:** a shallow copy is **enough** when every field is a primitive or an **immutable** object (`String`, `Integer`, `LocalDate`, records of immutables). You need a deep copy only for **mutable** nested objects.
+
+#### How to copy in real code
+
+| Approach | Notes |
+|---|---|
+| **Copy constructor / static factory** | Preferred. Explicit, type-safe, works with `final` fields |
+| `clone()` + `Cloneable` | Avoid. Marker interface with no methods, `Object.clone()` is protected, **shallow by default**, bypasses constructors, awkward with `final` fields |
+| Serialization round-trip | Deep copy for free but slow, requires `Serializable` |
+| `array.clone()`, `Arrays.copyOf`, `new ArrayList<>(list)`, `List.copyOf` | All **shallow**. Elements are shared |
+| Immutable design (`final` fields, records) | Best: nothing to defensively copy |
+
+**Defensive copying (production habit):**
+```java
+// ❌ WRONG — leaks internal mutable state, caller can mutate it
+public Date getCreated() { return created; }
+public Person(List<String> tags) { this.tags = tags; }
+
+// ✅ RIGHT
+public Date getCreated() { return new Date(created.getTime()); }
+public Person(List<String> tags) { this.tags = List.copyOf(tags); }   // immutable snapshot
+```
+
+
+
+### 10. Full Working Code Example
+
+```java
+class Point {
+    int x, y;
+    Point(int x, int y) { this.x = x; this.y = y; }
+    Point(Point p)      { this(p.x, p.y); }               // copy constructor
+}
+
+class Address {
+    String city;
+    Address(String city) { this.city = city; }
+}
+
+class Person {
+    String  name;
+    Address address;
+    Person(String name, Address address) { this.name = name; this.address = address; }
+    static Person shallowCopy(Person p) { return new Person(p.name, p.address); }
+    static Person deepCopy(Person p)    { return new Person(p.name, new Address(p.address.city)); }
+}
+
+public class Demo {
+    static void addTen(int x, int y)   { x += 10; y += 10; }
+    static void addTen(Point p)        { p.x += 10; p.y += 10; }
+    static void reassign(Point p)      { p = new Point(99, 99); p.x += 1; }
+    static void swap(Point a, Point b) { Point t = a; a = b; b = t; }
+
+    public static void main(String[] args) {
+        // 1. primitives: value copied
+        int x = 4, y = 5;
+        addTen(x, y);
+        System.out.println(x + " " + y);                 // 4 5
+
+        // 2. object: reference copied, object mutated
+        Point p1 = new Point(4, 5);
+        addTen(p1);
+        System.out.println(p1.x + " " + p1.y);           // 14 15
+
+        // 3. reassigning the parameter does nothing to the caller
+        reassign(p1);
+        System.out.println(p1.x + " " + p1.y);           // 14 15
+
+        // 4. swap does not work
+        Point p2 = new Point(1, 2), p3 = new Point(3, 4);
+        swap(p2, p3);
+        System.out.println(p2.x + " " + p3.x);           // 1 3
+
+        // 5. alias vs copy constructor
+        Point p4 = p1;                // alias
+        Point p5 = new Point(p1);     // independent copy
+        p4.x = 100;
+        System.out.println(p1.x);                        // 100
+        System.out.println(p5.x);                        // 14
+        System.out.println(p1 == p4);                    // true
+        System.out.println(p1 == p5);                    // false
+
+        // 6. shallow vs deep
+        Person orig    = new Person("Aditya", new Address("Guwahati"));
+        Person shallow = Person.shallowCopy(orig);
+        Person deep    = Person.deepCopy(orig);
+        orig.address.city = "Mumbai";
+        System.out.println(shallow.address.city);        // Mumbai
+        System.out.println(deep.address.city);           // Guwahati
+    }
+}
+```
+
+**Output:**
+```
+4 5
+14 15
+14 15
+1 3
+100
+14
+true
+false
+Mumbai
+Guwahati
+```
+
+> **Naming tip:** the video names its class `Random`, which clashes with `java.util.Random` in real projects. Use domain names (`Point`, `Coordinates`).
+
+
+
+### 11. Key Interview Points
+
+| Question | Answer |
+|---|---|
+| Size of a reference? | 4 bytes with compressed oops (default, heap < ~32 GB), else 8 bytes |
+| What is in an object header? | Mark word (8 B: hash, GC age, lock state) + class pointer (4 B, to Metaspace class metadata). Arrays add a 4 B length |
+| Size of `new Object()`? | 12 B header -> padded to **16 B** |
+| Why are objects padded? | 8-byte alignment (hardware-friendly, and enables compressed oops to reach 32 GB) |
+| Why can a 40 GB heap use more memory than a 30 GB heap for the same data? | Above ~32 GB compressed oops turn off: every reference doubles to 8 B |
+| Does an object's size include what its references point to? | No. That is **shallow size**. Retained size includes exclusively-owned referents |
+| Is Java pass-by-value or pass-by-reference? | **Always pass-by-value.** For objects, the *reference* is copied |
+| Prove Java isn't pass-by-reference | A `swap(a, b)` of two objects doesn't swap anything |
+| Why does mutating a passed object affect the caller? | Both references point to the same heap object |
+| Why doesn't reassigning the parameter affect the caller? | You only changed your local copy of the address |
+| `b = a` copies the object? | No: aliasing. Both refer to one object (`a == b` is `true`) |
+| Shallow vs deep copy? | Both make a new outer object. Shallow shares nested objects, deep clones them |
+| When is a shallow copy enough? | All fields primitive or immutable |
+| Why avoid `clone()`? | Shallow by default, `Cloneable` is a broken marker interface, bypasses constructors, clashes with `final` |
+| Are `Arrays.copyOf` / `new ArrayList<>(list)` deep copies? | No, shallow. Elements are shared |
+| Where do reference variables live? | Locals/params: stack frame. Reference *fields*: inside the heap object |
+| Does GC remove the parameter reference when a method returns? | No. The frame pops. GC only reclaims unreachable *objects* |
+
+
+
+### 12. Quick Summary / Mental Model
+
+```
+OBJECT SIZE
+───────────
+size = align8( 12 (header) + fields )        arrays: 16 header + elements
+        └ mark word 8 + class pointer 4        refs: 4 B (compressed) / 8 B
+
+METHOD CALLS (always by VALUE)
+──────────────────────────────
+primitive   ─► copy of the value             callee change  ✗ invisible
+reference   ─► copy of the ADDRESS           mutate object  ✓ visible
+                                             reassign param ✗ invisible
+
+COPYING
+───────
+b = a                      alias (same object)
+new T(a) / factory         NEW object
+   nested refs shared   ─► shallow
+   nested refs cloned   ─► deep
+```
+
+
+
+### 13. Checklist & Golden Rules
+
+#### Checklist
+- [ ] Reference = 4 B (compressed oops) or 8 B; object size = `align8(12 + fields)`.
+- [ ] Header = mark word (8) + class pointer (4); class pointer targets Metaspace metadata, not the object.
+- [ ] `Person { byte age; }` = **16 B** (the video's 18 is wrong).
+- [ ] Sizes are **shallow**; use MAT/heap dumps for retained size, JOL for layout.
+- [ ] Java is **always** pass-by-value; references pass their address by value.
+- [ ] Mutation through a parameter is visible; reassignment is not.
+- [ ] `b = a` is an alias, not a copy; `==` compares addresses.
+- [ ] Shallow copy shares nested objects; deep copy clones them.
+- [ ] `clone()`, `Arrays.copyOf`, `new ArrayList<>(x)` are shallow.
+
+#### Golden Rules
+1. **Never say "Java passes objects by reference".** Say "passes the reference by value".
+2. **Don't reassign parameters** expecting the caller to see it; return the new value instead.
+3. **Prefer immutability** (`final` fields, records, `List.copyOf`) so copying questions disappear.
+4. **Copy defensively** at API boundaries (constructors/getters) when holding mutable state.
+5. **Prefer copy constructors / static factories over `clone()`.**
+6. **Think in boxed vs primitive cost:** `List<Integer>` costs ~5x `int[]` per element (4 B ref + 16 B `Integer` vs 4 B).
+7. **Measure, don't guess:** use JOL and heap dumps when memory matters.
+
+
+
+
+## 15. Java `static` and `final` Keywords
+
+
+
+### 0. Corrections to the video (read first)
+
+The video simplifies a few things. These are the accurate versions.
+
+| Video says | Accurate version |
+|---|---|
+| "Static variables are not stored in Heap" | Conceptually they belong to the **class**, not any object. In HotSpot (Java 8+), class **metadata and method bytecode** live in **Metaspace**, while the **values of static fields are held in the `java.lang.Class` object, which is on the Heap**. Safe interview answer: "one copy per class, not per object, and not inside instance memory." |
+| "A static method can only call other static methods" | It cannot call an **instance** method *without an object*. It can call one through an object reference: `new Student().print();` is legal inside a static method. Same for instance fields. |
+| "Statics run as soon as the class is loaded" | They run at **class initialization**, which is lazy: triggered on first `new`, first static method call, or first access to a non-constant static field. *Loading* and *initialization* are different steps. |
+| "`final` variable = constant" | Only true for primitives and immutable objects. A `final` **reference** cannot be re-pointed, but the **object it points to can still be mutated**. |
+| "Java allows `final int x; x = 4;` as an optimization" | It is not an optimization. It is the **definite assignment** rule (JLS Ch. 16): a *blank final* must be assigned **exactly once** before use. |
+| "Constants are UPPER_CASE for any `final`" | The convention applies to **constants**, i.e. `static final` fields with immutable values. A non-static `final` instance field is normally `camelCase`. |
+| "A reference takes 4 bytes" | 4 bytes only with **compressed oops** (default when heap is below ~32 GB). Otherwise 8 bytes. |
+
+---
+
+### 1. The problem `static` solves
+
+```java
+class Student {
+    String name;
+    int    age;
+    int    rollNumber;
+    String college;   // same for every student of this application
+}
+```
+
+If the app models one college (say "IIT Guwahati"), every `Student` object stores its own copy of `college` with an identical value. With 100,000 objects that is 100,000 redundant references.
+
+**Fix:** make it a **class-level** member. One copy exists, shared by all instances.
+
+```java
+class Student {
+    String name;
+    int    age;
+    int    rollNumber;
+    static String college = "IIT Guwahati";   // one copy for the whole class
+}
+```
+
+```
+HEAP (per-object)                       CLASS-LEVEL (one copy)
+┌──────────────────────┐                ┌────────────────────────────┐
+│ s1: name, age, roll  │ ─ shares ────► │ Student.college = "IIT G"  │
+├──────────────────────┤                │ methods (bytecode)         │
+│ s2: name, age, roll  │ ─ shares ────► │ (Metaspace / Class object) │
+└──────────────────────┘                └────────────────────────────┘
+```
+
+> **Rule of thumb:** if a value belongs to the *concept* (the class) rather than to an *individual*, it is `static`.
+
+
+
+### 2. Static variables (class variables)
+
+| | Instance variable | Static variable (class variable) |
+|---|---|---|
+| Belongs to | Each object | The class |
+| Copies | One per object | Exactly one per class (per ClassLoader) |
+| Created | On `new` | On class initialization |
+| Access | `obj.field` | `ClassName.field` (preferred) |
+| Change by one object | Affects only that object | **Visible to all objects** |
+
+```java
+Student s1 = new Student();
+Student s2 = new Student();
+
+s1.college = "IIT Kharagpur";           // legal, but misleading (compiler warns)
+System.out.println(s2.college);         // IIT Kharagpur, changed for everyone
+System.out.println(Student.college);    // IIT Kharagpur  <- preferred access style
+```
+
+**Why the compiler warns on `s1.college`:** "The static field should be accessed in a static way." The instance is irrelevant, only its *declared type* matters. That is misleading to readers.
+
+```java
+Student s = null;
+System.out.println(s.college);   // NO NullPointerException. Resolved at compile time via the type Student.
+```
+
+#### Real use: shared counter (auto roll number)
+
+```java
+class Student {
+    private static int nextRoll = 1000;      // shared state
+    final int rollNumber;                    // per-object, assigned once
+
+    Student() { this.rollNumber = ++nextRoll; }
+}
+```
+
+This is **not thread-safe**. Two threads can read the same `nextRoll`. Use `AtomicInteger`:
+
+```java
+private static final AtomicInteger NEXT_ROLL = new AtomicInteger(1000);
+Student() { this.rollNumber = NEXT_ROLL.incrementAndGet(); }
+```
+
+
+
+### 3. Static methods
+
+```java
+class Student {
+    static String college = "IIT Guwahati";
+
+    static void printCollege() {           // no object needed
+        System.out.println(college);
+    }
+}
+
+Student.printCollege();   // preferred
+new Student().printCollege();  // legal, discouraged
+```
+
+Neither static nor non-static methods are stored inside objects. Each object holds only its **instance fields plus a header** (mark word and class pointer). Method bytecode exists **once per class** and is shared.
+
+#### The 3 rules (with the precise reasoning)
+
+| # | Rule | Why | Precise statement |
+|---|---|---|---|
+| 1 | Static method cannot call an **instance method** directly | Instance methods need a receiver object; a static method has none. The JVM cannot know *which* object's `print()` you mean. | Allowed through an explicit reference: `obj.print()` |
+| 2 | Static method cannot use **instance variables** directly | Instance fields exist only after `new`. `Student.markAttendance()` needs no object. | Allowed through a reference: `obj.name` |
+| 3 | Static method has no **`this`** (or `super`) | `this` = reference to the current object. A static context has no current object. | Compile error if used |
+
+```java
+class Student {
+    String name = "Aditya";
+
+    void print() { System.out.println(name); }
+
+    static void markAttendance() {
+        // print();              // ERROR: cannot make a static reference to a non-static method
+        // System.out.println(name); // ERROR
+        // System.out.println(this); // ERROR
+
+        Student s = new Student();   // OK: explicit object
+        s.print();
+    }
+}
+```
+
+The reverse is always allowed: **instance methods can freely use static members.**
+
+#### Beyond the video: static methods are not polymorphic
+
+Static methods are **hidden**, not overridden. Resolution uses the **declared (compile-time) type** (static binding), not the runtime object.
+
+```java
+class Parent { static void hello() { System.out.println("Parent"); } }
+class Child extends Parent { static void hello() { System.out.println("Child"); } }
+
+Parent p = new Child();
+p.hello();          // prints "Parent". No runtime dispatch.
+```
+
+Consequences:
+- `@Override` on a static method is a compile error.
+- A static method cannot be `abstract`.
+- Static methods cannot be overridden by an instance method (compile error) and vice versa.
+
+#### Beyond the video: `static synchronized`
+
+```java
+static synchronized void m() { }   // locks on Student.class, not on any instance
+synchronized void n() { }          // locks on `this`
+```
+
+They use **different monitors**, so a static synchronized and instance synchronized method can run concurrently.
+
+---
+
+### 4. Static block (static initializer)
+
+Initializes static variables when logic is needed. It is the static counterpart of a constructor.
+
+```java
+class Student {
+    static String college;
+    static int grade;
+
+    static {                       // runs ONCE, at class initialization
+        college = "IIT Guwahati";
+        grade   = 8;
+    }
+}
+```
+
+- Multiple static blocks are allowed. They run in **textual order**, interleaved with static field initializers.
+- A static block **cannot throw checked exceptions**.
+- If it throws an unchecked exception, the JVM throws `ExceptionInInitializerError`. Every later use of that class throws `NoClassDefFoundError`, and the class is unusable in that ClassLoader.
+- **Forward reference rule:** you may *assign* a static field before its declaration, but you may not *read* it by simple name.
+
+```java
+static {
+    x = 10;                        // OK: assignment
+    // System.out.println(x);      // ERROR: illegal forward reference
+}
+static int x = 5;                  // note: x ends up 5, not 10, because textual order wins
+```
+
+#### Beyond the video: complete initialization order
+
+```java
+class Parent {
+    static { System.out.println("1. Parent static block"); }
+    { System.out.println("3. Parent instance block"); }
+    Parent() { System.out.println("4. Parent constructor"); }
+}
+class Child extends Parent {
+    static { System.out.println("2. Child static block"); }
+    { System.out.println("5. Child instance block"); }
+    Child() { System.out.println("6. Child constructor"); }
+}
+
+new Child();
+new Child();   // static blocks do NOT run again
+```
+
+```
+1. Parent static block
+2. Child static block
+3. Parent instance block
+4. Parent constructor
+5. Child instance block
+6. Child constructor
+3. Parent instance block      <- second object: only steps 3-6 repeat
+4. Parent constructor
+5. Child instance block
+6. Child constructor
+```
+
+**Order:** parent static → child static (once per class) → for each object: parent instance init → parent ctor → child instance init → child ctor.
+
+#### Beyond the video: class loading vs initialization
+
+| Phase | What happens |
+|---|---|
+| **Loading** | ClassLoader reads the `.class` file, creates the `Class` object and metadata |
+| **Linking** | Verify bytecode → Prepare (static fields get **default values**: 0, null) → Resolve |
+| **Initialization** | Static initializers and static blocks run (in textual order), and the assigned values replace the defaults |
+
+Initialization is triggered by: `new`, calling a static method, reading/writing a non-constant static field, `Class.forName("X")`, or initializing a subclass (parent first).
+
+It is **not** triggered by: referencing a **compile-time constant**, declaring a variable of the type, or accessing an array of the type.
+
+```java
+class A {
+    static final int C = 10;          // compile-time constant, inlined by javac
+    static final Integer D = 10;      // not a constant expression
+    static { System.out.println("A initialized"); }
+}
+
+System.out.println(A.C);   // prints 10 only, A is NOT initialized
+System.out.println(A.D);   // prints "A initialized" then 10
+```
+
+---
+
+### 5. What can and cannot be `static`
+
+| Element | `static` allowed? | Reason |
+|---|---|---|
+| Field | Yes | Class-level state |
+| Method | Yes | Class-level behaviour |
+| Initializer block | Yes | Class-level initialization |
+| **Nested class** | Yes | Does not need an outer instance |
+| **Top-level class** | **No** | A top-level class is not a member of anything; `static` has no meaning |
+| **Method parameter** | **No** | Parameters are local variables on the stack; they die with the call |
+| **Local variable** | **No** | Same reason. No class-level meaning. (In C, function-static locals exist; in Java they do not.) |
+| Constructor | **No** | Constructors initialize an *instance* |
+
+#### Static nested vs inner class
+
+```java
+class Outer {
+    private int x = 1;
+    static class Nested { }       // no hidden reference to an Outer instance
+    class Inner { int get() { return x; } }  // holds an implicit Outer.this reference
+}
+
+Outer.Nested n = new Outer.Nested();          // no Outer needed
+Outer.Inner  i = new Outer().new Inner();     // needs an Outer instance
+```
+
+**Why it matters:** an inner class keeps a hidden reference to its outer object. This is a classic **memory leak** (an inner class instance or listener outlives the outer object and prevents its GC). Prefer `static` nested classes unless you need the outer instance. Builders, `Map.Entry` implementations, and holders are almost always `static`.
+
+**Interface members** (fields, nested types) are implicitly `static`. Interfaces may also declare `static` methods (Java 8+), which are **not inherited** by implementing classes and must be called as `InterfaceName.method()`.
+
+---
+
+### 6. Why `main` is `static`
+
+```java
+public static void main(String[] args) { }
+```
+
+The JVM launcher loads your class, finds `main`, and invokes it. If `main` were an instance method, the JVM would first have to construct an object of your class, but it does not know which constructor to call or which arguments to pass. Making `main` static removes the need for an instance. The JVM effectively calls `Demo.main(args)`.
+
+Consequences:
+- Every method called **directly** from `main` must also be static (or be called on an object you create).
+- Error you will see: `Cannot make a static reference to the non-static method`.
+
+| Part | Meaning |
+|---|---|
+| `public` | JVM (outside your package) must be able to call it |
+| `static` | Callable without an instance |
+| `void` | JVM ignores any return value. Exit code is set via `System.exit()` |
+| `String[] args` | Command-line arguments |
+
+**Beyond the video:**
+- The parameter can be `String... args` or any name, e.g. `String[] a`.
+- `final String[] args` is legal.
+- Overloads of `main` are legal, but only the exact signature is the entry point.
+- **Newer Java:** instance `main` and simplified entry points were introduced as preview features in Java 21-24 and finalized in **Java 25 (JEP 512)**. Classic `public static void main(String[] args)` still works everywhere and is what you will see in almost all production code.
+
+---
+
+### 7. `static` in real projects: patterns and pitfalls
+
+| Pattern | Example | Note |
+|---|---|---|
+| Constants | `public static final int MAX_RETRIES = 3;` | Most common use |
+| Utility class | `Math`, `Collections`, `Objects` | Make it `final` with a **private constructor** |
+| Static factory | `List.of(...)`, `Integer.valueOf(...)` | Named, can cache, can return subtypes |
+| Singleton holder | See below | Lazy and thread-safe without `synchronized` |
+| Counters / registries | `AtomicInteger`, `ConcurrentHashMap` | Must be thread-safe |
+
+```java
+final class StringUtil {
+    private StringUtil() { }                      // no instances
+    static boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
+}
+```
+
+**Lazy singleton via static nested holder** (relies on the class-initialization guarantee: the JVM initializes a class once, thread-safely):
+
+```java
+class Config {
+    private Config() { }
+    private static class Holder { static final Config INSTANCE = new Config(); }
+    static Config getInstance() { return Holder.INSTANCE; }  // Holder initializes on first call
+}
+```
+
+**Pitfalls:**
+
+| Pitfall | Why it hurts |
+|---|---|
+| **Mutable static state** | Hidden global state. Thread-safety bugs, test pollution (one test changes state seen by the next). |
+| **Static collections that only grow** | Objects stay reachable for the life of the ClassLoader, so they never get GC'd → memory leak. |
+| **Static methods for business logic with dependencies** | Cannot be mocked easily, cannot use dependency injection. In Spring code, prefer beans. |
+| **Static state in web/app servers** | Each ClassLoader gets its **own copy** of statics (e.g. per-webapp), so "one per JVM" is not guaranteed. |
+| **Heavy work in static initializers** | Slows class loading, and failures produce `NoClassDefFoundError`, which is hard to debug. |
+
+---
+
+### 8. The `final` keyword
+
+`final` means "**cannot be changed after it is set**". The meaning depends on where you place it.
+
+| Applied to | Effect |
+|---|---|
+| **Variable** | Can be assigned only once |
+| **Method parameter** | Cannot be reassigned inside the method |
+| **Method** | Cannot be **overridden** in subclasses |
+| **Class** | Cannot be **extended** |
+
+#### 8.1 `final` variables
+
+```java
+class Circle {
+    final double PI = 3.14;      // assigned at declaration
+}
+Circle c = new Circle();
+// c.PI = 3.16;   // ERROR: cannot assign a value to final variable PI
+```
+
+**Three legal places to assign a final instance field** (exactly once on every path):
+1. At the declaration.
+2. In an **instance initializer block**.
+3. In **every constructor** (or delegated through `this(...)`).
+
+```java
+class Circle {
+    private final double radius;                 // blank final
+    Circle()               { this(1.0); }        // delegates, so radius is assigned via this(...)
+    Circle(double radius)  { this.radius = radius; }
+}
+```
+
+A **blank final** that a constructor path leaves unassigned is a compile error: `variable radius might not have been initialized`.
+
+**Static final** fields are assigned at the declaration or in a **static block** (a constructor is not allowed, because a constructor runs per instance).
+
+```java
+static final double PI;
+static { PI = 3.14; }         // OK
+```
+
+**Local final variables** follow definite assignment:
+
+```java
+final int x;
+x = 4;          // OK: first assignment
+// x = 5;       // ERROR: variable x might already have been assigned
+```
+
+#### 8.2 Key gotcha: `final` reference ≠ immutable object
+
+```java
+final List<String> names = new ArrayList<>();
+names.add("Aditya");                 // OK: the object is mutated
+// names = new ArrayList<>();        // ERROR: the reference cannot change
+
+final int[] arr = {1, 2, 3};
+arr[0] = 99;                         // OK: array elements are mutable
+```
+
+`final` protects the **variable**. For a truly immutable value, the **object's class** must be immutable (`String`, `LocalDate`, `List.of(...)`, records with immutable components).
+
+#### 8.3 `final` parameters and locals
+
+```java
+void print(final String name) {
+    // name = "x";     // ERROR
+}
+```
+
+Also relevant: lambdas and anonymous/inner classes can capture only **final or effectively final** locals (never reassigned after initialization). You do not have to write `final` for this.
+
+```java
+int count = 0;
+Runnable r = () -> System.out.println(count);
+// count++;   // would make `count` non-effectively-final, so the lambda line above fails to compile
+```
+
+#### 8.4 `final` methods and classes
+
+```java
+class Payment {
+    final void audit() { /* must not be altered by subclasses */ }
+}
+final class Money { }               // cannot be extended
+```
+
+| Use | Examples / reasoning |
+|---|---|
+| `final class` | `String`, `Integer`, `Math`. Protects immutability and security. Subclassing `String` would let you break its guarantees. |
+| `final` method | Template method pattern: lock the algorithm skeleton, allow overriding of only the hooks. |
+
+**Note:** private and static methods cannot be overridden anyway, so making them `final` is redundant. `final` does **not** meaningfully help the JIT. HotSpot uses class hierarchy analysis and inlines regardless. Do not add `final` for performance.
+
+#### 8.5 Beyond the video: `final` and the Java Memory Model
+
+`final` fields have a special guarantee (JLS §17.5): once a constructor finishes, **any thread that sees the object reference is guaranteed to see the correct values of its final fields**, even without synchronization. This is why immutable classes are inherently thread-safe.
+
+The condition is that the constructor must not leak `this`:
+
+```java
+class Bad {
+    final int v;
+    Bad(Registry r) { r.register(this); this.v = 42; }   // `this` escapes before v is set → unsafe
+}
+```
+
+#### 8.6 Beyond the video: compile-time constants are inlined
+
+```java
+public static final int TIMEOUT = 30;            // constant variable: javac copies 30 into callers
+public static final Integer TIMEOUT2 = 30;       // NOT inlined (not a constant expression)
+```
+
+If you change `TIMEOUT` in library A but do not **recompile** dependent class B, B keeps using the old value. This is a known pitfall with shared constants. Use non-constant initialization if the value may change between releases.
+
+#### 8.7 Beyond the video: can `final` be bypassed?
+
+Reflection with `setAccessible(true)` can modify a *final instance field* in some cases, and the JVM may keep serving the old value because of inlining and caching. Static final fields and record fields are protected, and newer Java versions are restricting this further. Treat `final` as a hard guarantee in your code.
+
+---
+
+### 9. `static final`: constants
+
+```java
+class Circle {
+    public static final double PI = 3.14159;   // shared by all, and never changes
+    public static final int MAX_RADIUS;
+    static { MAX_RADIUS = 1000; }
+}
+```
+
+- `static` → one copy for the whole class (saves memory, accessible as `Circle.PI`).
+- `final` → value cannot change.
+- **Naming:** `UPPER_SNAKE_CASE` with underscores between words: `MAX_RETRY_COUNT`, `DEFAULT_TIMEOUT_MS`.
+
+**Best practices:**
+
+| Do | Avoid |
+|---|---|
+| `public static final String` / primitives | `public static final List<String> X = new ArrayList<>();` (contents are mutable). Use `List.of(...)` or `Collections.unmodifiableList(...)`. |
+| Use an **`enum`** for a fixed set of related constants | Constants-only **interfaces** (constant interface antipattern) |
+| Group constants in a `final` class with a private constructor | Magic numbers scattered in code |
+
+---
+
+### 10. `String[] args`: command-line arguments
+
+`args` holds the arguments typed **after the class name** when launching the program. Every element is a `String`.
+
+```java
+public class Demo5 {
+    public static void main(String[] args) {
+        System.out.println("Number of arguments: " + args.length);
+        for (int i = 0; i < args.length; i++) {
+            System.out.println("Argument " + i + " = " + args[i]);
+        }
+    }
+}
+```
+
+```bash
+javac Demo5.java
+java Demo5                          # Number of arguments: 0
+java Demo5 Aditya Tandon Rohit Negi
+# Number of arguments: 4
+# Argument 0 = Aditya   ... Argument 3 = Negi
+```
+
+Since Java 11 you can skip the compile step for a single file: `java Demo5.java Aditya Tandon`.
+
+**Details:**
+- `args` is **never `null`**. With no arguments it is an empty array (`length == 0`).
+- Space separates arguments. Use quotes for a single argument containing spaces: `java Demo5 "Aditya Tandon"`.
+- Arguments are always `String`. Convert with `Integer.parseInt(args[0])`, which can throw `NumberFormatException`.
+- `args[0]` with no arguments throws `ArrayIndexOutOfBoundsException`. Always check `args.length` first.
+
+**JVM options vs program arguments** (order matters):
+
+```bash
+java -Xmx512m -Denv=prod  -jar app.jar   --server.port=9090
+#    └──── JVM options ────┘        └── program args (in args[]) ──┘
+```
+
+**Where this is used today:** Spring Boot (`--server.port=9090`, `--spring.profiles.active=prod`), CLI tools (often via libraries like picocli), batch jobs, and container `ENTRYPOINT`/`CMD` arguments. Configuration passed on the command line reaches your code through `args`.
+
+---
+
+### 11. Full example: everything together
+
+```java
+public class Student {
+
+    // ---- class-level (static) ----
+    static final String COLLEGE;                              // static final, blank, set in static block
+    private static final AtomicInteger NEXT_ROLL = new AtomicInteger(1000);
+
+    static {
+        COLLEGE = "IIT Guwahati";
+        System.out.println("Student class initialized");     // runs once
+    }
+
+    // ---- per-object ----
+    private final String name;                                // set once in the constructor
+    private final int    rollNumber;
+    private int          age;                                 // mutable
+
+    Student(String name, int age) {
+        this.name       = name;
+        this.age        = age;
+        this.rollNumber = NEXT_ROLL.incrementAndGet();
+    }
+
+    static String getCollege() { return COLLEGE; }            // static method, uses only static state
+
+    void print() {                                            // instance method, can use both kinds
+        System.out.println(name + ", " + age + ", " + rollNumber + ", " + COLLEGE);
+    }
+
+    public static void main(String[] args) {
+        Student s1 = new Student("Aditya", 28);
+        Student s2 = new Student("Rohit", 28);
+        s1.print();      // Aditya, 28, 1001, IIT Guwahati
+        s2.print();      // Rohit, 28, 1002, IIT Guwahati
+        System.out.println(Student.getCollege());
+    }
+}
+```
+
+Output:
+
+```
+Student class initialized
+Aditya, 28, 1001, IIT Guwahati
+Rohit, 28, 1002, IIT Guwahati
+IIT Guwahati
+```
+
+---
+
+### 12. Quick comparison
+
+| | `static` | `final` |
+|---|---|---|
+| Question it answers | **Whose** is it? (class vs object) | **Can it change?** |
+| Variable | One shared copy | Assigned once |
+| Method | Called without an object; hidden, not overridden | Cannot be overridden |
+| Class | Only for nested classes | Cannot be extended |
+| Block | Static initializer, runs once | (not applicable) |
+| Combined | `static final` = shared constant | |
+
+---
+
+### 13. Interview questions
+
+| Question | Answer |
+|---|---|
+| What is a `static` variable? | A class-level variable: one copy per class (per ClassLoader), shared by all instances. |
+| Where are static variables stored? | Class metadata is in **Metaspace**; in HotSpot the static field values are held in the `Class` object on the **Heap**. Not inside instance objects. |
+| Can a static method access instance members? | Not directly (no `this`). Yes via an explicit object reference. |
+| Can we override a static method? | No. It is **hidden**, resolved at compile time from the declared type. |
+| Can a static method be abstract? | No. Abstract needs overriding; static cannot be overridden. |
+| Can a constructor be static? | No. |
+| When does a static block run? | Once, at class **initialization** (not merely loading), before any instance creation or static member use. |
+| Can a class have multiple static blocks? | Yes; they run in textual order. |
+| What if a static block throws? | `ExceptionInInitializerError`, and later uses of the class throw `NoClassDefFoundError`. |
+| Why is `main` static? | So the JVM can call it without constructing an object of the class. |
+| Can we run a program without `main`? | A class with no entry point cannot be launched with `java` (Java 7+ checks for `main` first). Frameworks, tests, and servlet containers call your code through other entry points. |
+| Can `main` be overloaded / `final` / `synchronized`? | Yes to all. The JVM calls only the standard signature. |
+| What is a top-level static class? | Not allowed. Only nested classes can be `static`. |
+| Difference between static nested and inner class? | Static nested has no outer instance. Inner holds an implicit outer reference (leak risk). |
+| Does `final` make an object immutable? | No. It only prevents reassigning the variable. |
+| What is a blank final? | A final variable declared without initializer. It must be assigned exactly once (constructor, initializer block, or static block). |
+| Can a final variable be assigned in a constructor? | Yes, for instance fields (each constructor path must assign it exactly once). |
+| Why must lambda-captured variables be effectively final? | Locals live on the stack; the lambda captures a **copy**. Allowing mutation would make the copy and original disagree. |
+| `final` vs `finally` vs `finalize()`? | `final`: modifier. `finally`: block that always runs after try/catch. `finalize()`: deprecated GC hook, do not use (use try-with-resources / `Cleaner`). |
+| Why is `String` final? | Immutability → safe as `HashMap` keys, thread-safe, enables the string pool, protects security-sensitive uses (class names, file paths). |
+| Is `static final int X = 5` inlined? | Yes. It is a compile-time constant, so dependents need recompiling if it changes. |
+| Can we declare a static variable inside a method? | No. Locals cannot be `static` in Java. |
+| Is static thread-safe? | No. Mutable statics need `volatile`, atomics, locks, or concurrent collections. |
+| Does `static` affect memory? | Saves per-object copies, but the value lives until the class is unloaded, so large statics can leak. |
+| Order of initialization for a child object? | Parent static → child static → parent instance init → parent ctor → child instance init → child ctor. |
+
+---
+
+### 14. Summary / mental model
+
+```
+static  →  "belongs to the CLASS"      final  →  "assigned ONCE"
+           one copy, shared                       variable: no reassignment
+           no `this`, no object needed            method:   no overriding
+           runs at class initialization           class:    no subclassing
+
+static final  →  shared constant   (UPPER_SNAKE_CASE)
+
+main is static  →  JVM calls it without creating an object
+String[] args   →  command-line arguments after the class name, always Strings
+```
+
+**Remember:**
+1. `static` = class-level, `final` = single assignment. They are independent and combine freely.
+2. Static methods have no `this`. They reach instance state only through an object reference.
+3. Statics are hidden, not overridden, and resolved at compile time.
+4. `final` reference ≠ immutable object.
+5. Static initialization order: parent before child, textual order within a class, once per class.
+6. Mutable static state is a design smell: prefer instance state, dependency injection, or thread-safe structures.
+
+## 16. Pillars of OOP (Part 1): Encapsulation and Inheritance
+
+
+
+### 0. Corrections to the video (read first)
+
+| Video says | Accurate version |
+|---|---|
+| Encapsulation = `private` fields + getters/setters | That is the *mechanism*, not the goal. The goal is to **protect invariants**: an object should never be put into an invalid state from outside. Blind getters/setters for every field expose the data again and defeat the purpose. Prefer **behaviour methods** (`deposit`, `withdraw`) over `setBalance`. |
+| "`default` is an access modifier keyword" | There is **no `default` keyword** for access. Writing nothing gives **package-private** access. (`default` exists only in `switch` and interface default methods.) |
+| `super.super.rollNumber` | **Not valid Java.** You cannot chain `super`. You can only reach the *immediate* parent's members with `super.x`. |
+| "`super` stores the reference of the parent object" | There is **no separate parent object**. A child instance is *one object* that contains the parent's fields plus its own. `super` is not a variable: you cannot assign it or pass it around (unlike `this`). It is a keyword that tells the compiler to look in the parent class. |
+| "The compiler can't tell at runtime which method to call" (diamond problem) | It is a **language-design decision**: Java bans multiple inheritance of *classes* to avoid ambiguity of behaviour **and state**. Java *does* allow multiple inheritance of type (interfaces), and since Java 8 of behaviour (default methods), with an explicit conflict-resolution rule. |
+| "Importing loads the class's bytecode" | `import` is only a **naming shortcut** resolved at compile time. Nothing is copied or loaded. Classes are loaded **lazily at runtime** by the ClassLoader when first used. |
+| "A package is a folder" | A package is a **namespace**. It maps to a directory structure because the compiler and classpath expect that layout, but conceptually it groups related types and controls package-private access. |
+| "Method in child shadows the parent's" | Methods are **overridden** (runtime dispatch). Fields are **hidden**, not overridden (resolved by reference type). Different mechanisms. |
+| `double balance` for money | Never use `double`/`float` for money (binary floating-point cannot represent 0.1 exactly). Use `BigDecimal` or integer minor units (paise/cents). |
+
+
+
+### 1. Encapsulation
+
+**Definition (two parts):**
+1. **Bundling:** data (fields) and behaviour (methods) live together in one unit (the class).
+2. **Data hiding:** restrict direct access to the data; expose it only through a controlled public interface.
+
+```
+┌───────────── BankAccount ─────────────┐
+│  private double balance   ← hidden    │
+│                                       │
+│  + deposit(amount)        ← controlled│
+│  + withdraw(amount)       ← controlled│
+│  + getBalance()           ← read-only │
+└───────────────────────────────────────┘
+```
+
+#### Problem without encapsulation
+
+```java
+class BankAccount { double balance; }
+
+BankAccount ba = new BankAccount();
+ba.balance = 10_000_000;   // anyone can set any value: no rules, no audit
+```
+
+#### With encapsulation
+
+```java
+import java.math.BigDecimal;
+
+public class BankAccount {
+    private BigDecimal balance = BigDecimal.ZERO;          // hidden state
+
+    public void deposit(BigDecimal amount) {
+        if (amount == null || amount.signum() <= 0)
+            throw new IllegalArgumentException("Deposit must be positive");
+        balance = balance.add(amount);
+    }
+
+    public void withdraw(BigDecimal amount) {
+        if (amount == null || amount.signum() <= 0)
+            throw new IllegalArgumentException("Withdrawal must be positive");
+        if (amount.compareTo(balance) > 0)
+            throw new IllegalStateException("Insufficient funds");
+        balance = balance.subtract(amount);
+    }
+
+    public BigDecimal getBalance() { return balance; }     // getter only. No setBalance() on purpose.
+}
+```
+
+**Key design point:** the class has **no `setBalance`**. The real world does not let you edit a balance directly; you only deposit or withdraw. Rules (validation) live in one place, the methods.
+
+#### Getters and setters: what they are good for
+
+```java
+public class Student {
+    private String name;
+    private int age;
+    private String college;
+
+    public String getName() { return name; }
+    public void setName(String name) {
+        if (name == null || name.isBlank())
+            throw new IllegalArgumentException("Name required");
+        this.name = name.trim();
+    }
+
+    public void setAge(int age) {
+        if (age < 0 || age > 120) throw new IllegalArgumentException("Invalid age");
+        this.age = age;
+    }
+}
+```
+
+Benefits: **validation**, **read-only / write-only** fields (omit the setter or getter), **change internals later** without breaking callers (rename a field, compute a value lazily), **hook points** (logging, notifications, thread-safety).
+
+#### Beyond the video: pitfalls
+
+**1. A getter can leak internal state.** Returning a reference to a mutable object breaks encapsulation even with `private`:
+
+```java
+class Student {
+    private final List<String> courses = new ArrayList<>();
+
+    // BAD: caller can do student.getCourses().clear()
+    public List<String> getCourses() { return courses; }
+
+    // GOOD: defensive copy or unmodifiable view
+    public List<String> getCoursesSafe() { return List.copyOf(courses); }
+    // or: Collections.unmodifiableList(courses)  (a live read-only view, not a copy)
+}
+```
+
+Same rule for constructors and setters: **copy mutable arguments on the way in** (`Date`, arrays, collections).
+
+**2. "Tell, don't ask."** Instead of `if (acc.getBalance() >= x) acc.setBalance(acc.getBalance() - x)`, call `acc.withdraw(x)`. Logic that uses an object's data belongs inside that object.
+
+**3. Encapsulation is not thread-safety.** Two threads calling `withdraw` concurrently can corrupt the balance. Guard with `synchronized`, locks, or atomics.
+
+**4. Immutability is the strongest encapsulation.** `private final` fields, no setters, no leaking of mutable state. Modern shortcut (Java 16+): `record Point(int x, int y) {}` gives an immutable class with accessors, `equals`, `hashCode`, `toString`.
+
+**5. Encapsulation vs abstraction:** encapsulation *hides data* (how the state is stored). Abstraction *hides complexity* (what the caller needs to know). Related, but different pillars.
+
+**6. Frameworks:** Getters/setters follow the **JavaBeans convention** (`getX`, `isX` for boolean, `setX`), which frameworks (Spring, Jackson, Hibernate) use via reflection. Tools like **Lombok** (`@Getter`, `@Setter`) generate them, but the design advice above still applies.
+
+---
+
+### 2. Access modifiers
+
+Four levels of access, applicable to **fields, methods, constructors, and classes** (with restrictions on classes).
+
+| Modifier | Same class | Same package | Subclass (different package) | Everywhere else |
+|---|:---:|:---:|:---:|:---:|
+| `private` | Yes | No | No | No |
+| *(none)*: package-private | Yes | Yes | No | No |
+| `protected` | Yes | Yes | Yes (via inheritance) | No |
+| `public` | Yes | Yes | Yes | Yes |
+
+Strictness order: **`private` > package-private > `protected` > `public`**.
+
+```java
+public class Demo {
+    private   int a;   // this class only
+              int b;   // package-private (no keyword)
+    protected int c;   // same package + subclasses
+    public    int d;   // everyone
+}
+```
+
+#### Rules for classes (top-level)
+
+| Modifier on a **top-level class** | Allowed? | Reason |
+|---|---|---|
+| `public` | Yes | Visible everywhere |
+| package-private (none) | Yes | Visible in its package only |
+| `private` | **No** | "Private to what?" There is no enclosing class. |
+| `protected` | **No** | Subclass access is a member-level concept |
+
+Nested classes can be `private` or `protected`, because they are *members* of the outer class.
+
+**One `public` top-level class per file, and the file name must match it** (`Student.java` → `public class Student`). Non-public classes can share a file, but this is bad practice.
+
+#### Beyond the video: precise details
+
+**1. `private` is per class, not per object.** Another instance of the same class can access your private fields:
+
+```java
+class Account {
+    private int balance;
+    boolean richerThan(Account other) { return this.balance > other.balance; }  // legal
+}
+```
+
+**2. Nested/inner classes can access the outer class's private members** (and vice versa). The compiler generates accessors internally (nestmates since Java 11).
+
+**3. `protected` across packages has a subtle rule.** A subclass in a different package can access a protected member only **through a reference of its own type (or a subtype)**, not through a parent-type reference:
+
+```java
+package a;
+public class Parent { protected int x; protected void hi() { } }
+```
+```java
+package b;
+import a.Parent;
+
+public class Child extends Parent {
+    void test() {
+        x = 1;                    // OK (this.x)
+        hi();                     // OK
+        Child c = new Child();
+        c.x = 2;                  // OK: reference of type Child
+        Parent p = new Parent();
+        // p.x = 3;               // ERROR: protected access through a Parent reference
+    }
+}
+```
+
+**4. Overriding cannot reduce visibility.** A `public` method in the parent cannot be overridden as `protected` or package-private in the child (compile error). Interface methods are implicitly `public`, so implementations must be `public`.
+
+**5. Constructors:** a `private` constructor prevents outside instantiation (utility classes, singletons, static factory pattern). A package-private constructor allows creation only inside the package.
+
+**6. Best practices:**
+- Default to the **most restrictive** modifier that works: fields `private`, methods `public` only if part of the API.
+- `public` + `private` cover almost everything in practice. `protected` appears in framework/base-class design. Package-private is useful for internal helpers and testing within the same package.
+- Java 9+ **modules** add another layer: a `public` class is accessible outside its module only if the package is `exports`ed.
+
+**7. Reflection can bypass `private`** via `setAccessible(true)` (subject to module restrictions). Access modifiers are compile-time and design tools, not a security boundary.
+
+---
+
+### 3. Packages
+
+A **package** groups related classes/interfaces into a **namespace**. Purposes: avoid name clashes (`school.Student` vs `college.Student`), organize code, control access (package-private).
+
+```
+src/
+└── com/example/college/
+    ├── Student.java     →  package com.example.college;
+    └── Teacher.java     →  package com.example.college;
+```
+
+```java
+package com.example.college;          // must be the first statement (before imports)
+
+public class Student {
+    public void print() { System.out.println("College student"); }
+}
+```
+
+**Naming convention:** all lowercase, **reverse domain name**: `com.company.project.module` (e.g. `org.springframework.boot`). This makes names globally unique.
+
+#### Using classes from another package
+
+```java
+import com.example.college.Student;         // single-type import
+import com.example.college.*;               // on-demand import (all types in that package)
+
+public class Demo2 {
+    public static void main(String[] args) {
+        Student s = new Student();
+        s.print();                           // print() must be public if Demo2 is in another package
+    }
+}
+```
+
+**Same package:** no import needed, and package-private members are visible (this is why the video's `Teacher` could call `Student.print()` with no modifier).
+
+#### Name clashes: fully qualified names
+
+```java
+com.example.college.Student a = new com.example.college.Student();
+com.example.school.Student  b = new com.example.school.Student();
+```
+
+Importing two classes with the same simple name causes a compile error (`... collides with another import`). Import one, and use the fully qualified name for the other.
+
+#### Built-in packages
+
+| Package | Contents |
+|---|---|
+| `java.lang` | `String`, `Object`, `Math`, `System`, wrappers. **Imported automatically.** |
+| `java.util` | Collections (`ArrayList`, `HashMap`), `Optional`, `Scanner` |
+| `java.io` / `java.nio` | Input/output and files |
+| `java.time` | Modern date/time API |
+| `java.util.concurrent` | Threads, executors, concurrent collections |
+
+#### Beyond the video
+
+**1. `import` is not `#include`.** It only lets you write `ArrayList` instead of `java.util.ArrayList`. No code is copied, no runtime cost, and no class is loaded by the import itself.
+
+**2. `*` does not import sub-packages.** `import java.util.*;` does **not** import `java.util.concurrent.ConcurrentHashMap`.
+
+**3. Resolution order:** single-type import beats on-demand (`*`) import; classes in the same package beat both.
+
+**4. Static imports:** `import static java.lang.Math.*;` lets you write `sqrt(x)` (use sparingly; it hurts readability).
+
+**5. The default package** (no `package` statement) works for toy programs, but classes in it **cannot be imported** from named packages. Never use it in real projects.
+
+**6. Compiling and running with packages:**
+
+```bash
+javac -d out src/com/example/college/*.java src/com/example/Main.java
+java  -cp out com.example.Main          # run using the fully qualified class name
+```
+
+In IDEs/Maven/Gradle the tooling handles this, but the directory must match the package (`com/example/college/`).
+
+**7. Classpath and JARs:** packages are what JARs are made of. The **ClassLoader** finds `com/example/college/Student.class` on the classpath/modulepath by converting the package name to a path.
+
+---
+
+### 4. Inheritance
+
+**Inheritance** lets a class (**subclass / child**) acquire the fields and methods of another (**superclass / parent**), modelling an **IS-A** relationship.
+
+```java
+class Vehicle {
+    void start() { System.out.println("Vehicle starting"); }
+}
+
+class Car extends Vehicle {                 // Car IS-A Vehicle
+    void setGear(int g) { System.out.println("Gear " + g); }
+}
+
+Car c = new Car();
+c.start();       // inherited
+c.setGear(2);    // own
+```
+
+- Every car is a vehicle, but not every vehicle is a car (reverse is false).
+- Common code goes in the parent, specific code in the child.
+
+#### Benefits
+
+| Benefit | Explanation |
+|---|---|
+| **Code reuse** | `start()` written once, available to `Car`, `Bike`, `Truck` |
+| **Polymorphism support** | A parent-type reference can point to any child object (next topic) |
+| **Logical hierarchy** | Models real-world classification |
+
+#### Terminology
+
+- Parent = superclass = base class. Child = subclass = derived class.
+- `extends` keyword. A class can extend **only one** class.
+- **Every class implicitly extends `java.lang.Object`** (if it does not extend anything else), which is why every object has `toString()`, `equals()`, `hashCode()`.
+
+#### What a reference type can call (important)
+
+```java
+class Student { void markAttendance() { System.out.println("Attendance marked"); } }
+class EngineeringStudent extends Student { void attendLab() { System.out.println("Lab attended"); } }
+
+EngineeringStudent es = new EngineeringStudent();
+es.markAttendance();   // OK: inherited
+es.attendLab();        // OK: own
+
+Student s = new Student();
+// s.attendLab();      // ERROR: Student has no attendLab()
+
+Student s2 = new EngineeringStudent();   // allowed (upcasting)
+// s2.attendLab();     // ERROR: the *reference type* decides what you can call
+```
+
+**Rule:** the **reference type** decides which members the compiler lets you call. The **actual object** decides which overridden implementation runs (polymorphism, next lecture).
+
+#### Beyond the video: what is and is not inherited
+
+| Member | Inherited? |
+|---|---|
+| `public` / `protected` fields and methods | Yes |
+| Package-private members | Only if the child is in the **same package** |
+| `private` members | **Not accessible** in the child. (The private *fields do exist* in the object's memory, since the parent part is built, but the child cannot reference them directly. Use protected/public accessors.) |
+| **Constructors** | **Never inherited.** A child must define its own and call the parent's via `super(...)` |
+| `static` members | Accessible via the child class name, but **hidden, not overridden** |
+| `final` methods | Inherited, but **cannot be overridden** |
+
+**Access modifier and inheritance:** if the parent method is `private`, the child cannot call it (video example: the compiler error "method not visible" appears in both the parent's outside callers and child).
+
+#### Overriding (the video calls it "shadowing")
+
+```java
+class Vehicle { void start() { System.out.println("Vehicle starts"); } }
+class Car extends Vehicle {
+    @Override                                   // always use: compiler verifies you really override
+    void start() { System.out.println("Car starts with a key"); }
+}
+
+Vehicle v = new Car();
+v.start();      // "Car starts with a key" -> decided at RUNTIME by the actual object
+```
+
+Rules: same name and parameters, return type same or **covariant** (subtype), visibility **same or wider**, cannot throw broader **checked** exceptions, cannot override `final`, `static` or `private` methods.
+
+#### Beyond the video: field hiding vs method overriding
+
+```java
+class A { int x = 4;  void show() { System.out.println("A.show"); } }
+class B extends A {
+    int x = 5;                                   // hides A.x (a different variable)
+    @Override void show() { System.out.println("B.show " + x + " " + super.x + " " + this.x); }  // B.show 5 4 5
+}
+
+A ref = new B();
+System.out.println(ref.x);   // 4  -> fields resolved by REFERENCE type (compile time)
+ref.show();                  // B.show 5 4 5 -> methods resolved by OBJECT type (runtime)
+```
+
+Do not reuse field names in subclasses. It is a source of confusing bugs.
+
+#### Beyond the video: when NOT to use inheritance
+
+- **IS-A vs HAS-A:** use inheritance for true IS-A. Use **composition** (a field holding another object) for HAS-A. A `Car` *has an* `Engine`; it is not one.
+- **Composition over inheritance** is a widely accepted guideline: inheritance creates **tight coupling** and the **fragile base class problem** (a change in the parent can silently break children).
+- **Liskov Substitution Principle:** a child must be usable wherever the parent is expected without breaking behaviour. `Square extends Rectangle` is the classic violation.
+- Prevent unwanted extension with `final class` (e.g. `String`); Java 17+ `sealed` classes allow a controlled list of subclasses.
+- Design for inheritance or prohibit it (Effective Java, Item 19).
+
+---
+
+### 5. Types of inheritance
+
+| Type | Shape | Supported in Java (classes)? |
+|---|---|---|
+| **Single** | `A → B` | Yes |
+| **Multilevel** | `A → B → C` | Yes |
+| **Hierarchical** | `A → B`, `A → C` (one parent, many children) | Yes |
+| **Multiple** | `A, B → C` (many parents) | **No** (with classes) |
+| **Hybrid** | mix of the above | Only if it avoids multiple class inheritance |
+
+```java
+// Single
+class Student { }
+class EngineeringStudent extends Student { }
+
+// Multilevel: C inherits everything accessible from B and from A
+class CseStudent extends EngineeringStudent { }
+
+// Hierarchical: two children of the same parent
+class MedicalStudent extends Student { }      // sibling of EngineeringStudent
+```
+
+- In multilevel, `CseStudent` can use every non-private member of `EngineeringStudent` **and** `Student`.
+- Siblings (`EngineeringStudent`, `MedicalStudent`) do **not** share each other's members. Common members belong in the parent.
+
+#### Multiple inheritance: not allowed for classes
+
+```java
+class C extends A, B { }     // COMPILE ERROR
+```
+
+---
+
+### 6. The diamond problem (why multiple class inheritance is banned)
+
+```
+        A  (show())
+       / \
+      B   C     (both override show())
+       \ /
+        D  ← which show() does D inherit?
+```
+
+If `D` could extend both `B` and `C`, calling `d.show()` would be ambiguous. The same applies to **fields**: which copy of the parent's state does `D` get? Java avoids the whole class of problems (unlike C++, which needs `virtual` inheritance) by allowing only **one superclass**.
+
+#### How Java still gets multiple inheritance: interfaces
+
+A class may `implements` many interfaces (multiple inheritance of **type**). Since Java 8, interfaces can have `default` methods, so a diamond can appear, and Java forces you to resolve it:
+
+```java
+interface A { default void show() { System.out.println("A"); } }
+interface B extends A { default void show() { System.out.println("B"); } }
+interface C extends A { default void show() { System.out.println("C"); } }
+
+class D implements B, C {
+    @Override
+    public void show() {
+        B.super.show();       // explicit choice: call B's version (or C.super.show(), or your own logic)
+    }
+}
+```
+
+Without the override, `D` fails to compile ("inherits unrelated defaults"). **Conflict-resolution rules:** (1) a class's own or inherited **class** method always wins over an interface default; (2) the **more specific** interface wins; (3) otherwise you must override and choose explicitly.
+
+Interfaces have **no instance state**, which is why multiple inheritance of *behaviour* is manageable in Java while multiple inheritance of *state* is not.
+
+---
+
+### 7. The `super` keyword
+
+`this` refers to the **current object**. `super` refers to the **parent-class part** of the current object: a way to reach the parent's members that the child has hidden or overridden. It has **three uses**.
+
+#### Use 1: access a parent's field (when hidden)
+
+```java
+class A { int x = 4; }
+class B extends A {
+    int x = 5;
+    void print() {
+        System.out.println(x);         // 5 (own)
+        System.out.println(super.x);   // 4 (parent's)
+    }
+}
+```
+
+If there is no name clash, `super.` is optional.
+
+#### Use 2: call a parent's method (when overridden)
+
+```java
+class Student {
+    void print() { System.out.println("Name/Age/Roll"); }
+}
+class EngineeringStudent extends Student {
+    @Override
+    void print() {
+        super.print();                          // reuse the parent's logic first
+        System.out.println("College: IIT G");   // then extend it
+    }
+}
+```
+
+This is the standard pattern for **extending** rather than replacing behaviour.
+
+#### Use 3: call a parent's constructor: `super(...)`
+
+```java
+class Student {
+    String name; int age; int rollNumber;
+    Student() { }                                          // explicit no-arg constructor
+    Student(String name, int age, int rollNumber) {
+        this.name = name; this.age = age; this.rollNumber = rollNumber;
+    }
+}
+
+class EngineeringStudent extends Student {
+    String college;
+    EngineeringStudent(String name, int age, int rollNumber, String college) {
+        super(name, age, rollNumber);      // parent initializes its own fields
+        this.college = college;            // child initializes its own
+    }
+}
+
+EngineeringStudent es = new EngineeringStudent("Aditya", 28, 1001, "IIT Guwahati");
+```
+
+**Rules for constructors and `super`:**
+
+| Rule | Detail |
+|---|---|
+| Parent constructor always runs **first** | The parent part of the object must exist before the child part. |
+| `super()` is **inserted implicitly** | If you don't write it, the compiler adds `super();` (no-arg) as the first line of every constructor. |
+| Implicit `super()` needs a **no-arg parent constructor** | If the parent only has parameterized constructors (or the video's case: you defined one, so Java stops generating the default), the child fails to compile with *"constructor Student in class Student cannot be applied"*. Fix: call `super(args)` explicitly or add a no-arg constructor. |
+| `super(...)` must be the **first statement** | Classic rule. (Newer Java, 25+, relaxes this to allow statements that don't touch `this` before `super(...)`.) |
+| `super(...)` and `this(...)` cannot both appear | Both must be first. A constructor may chain via `this(...)`, and the chain must end in one that calls `super(...)`. |
+| `super` is **unavailable in static context** | Static methods have no object. |
+| Constructors are not inherited | Each class writes its own. |
+
+#### Constructor chaining order
+
+```java
+class A {
+    A()      { System.out.println("A()"); }
+    A(int x) { System.out.println("A(int)"); }
+}
+class B extends A {
+    B()      { System.out.println("B()"); }              // implicit super()
+    B(int x) { super(x); System.out.println("B(int)"); }
+}
+
+new B();      // A()  B()
+new B(5);     // A(int)  B(int)
+```
+
+Combine with the earlier init-order notes: **parent static → child static → parent instance init → parent constructor → child instance init → child constructor.**
+
+#### Beyond the video
+
+- `super.method()` is a **non-virtual, direct call** to the parent's implementation (`invokespecial` in bytecode), so it does not get overridden again by a grand-child.
+- **Do not call overridable methods from a constructor.** The parent constructor runs before the child's fields are initialized, so an overridden method can see default values (`null`/`0`).
+```java
+class Parent { Parent() { init(); } void init() { } }
+class Child extends Parent {
+    String name = "x";
+    @Override void init() { System.out.println(name); }   // prints null when called from Parent()
+}
+new Child();   // null
+```
+- You can only reach the **immediate** parent with `super`. To bypass a level, restructure the design (or use interface `X.super.method()` syntax for default methods).
+- Inside an inner class, `Outer.this` accesses the outer instance (different from `super`).
+
+---
+
+### 8. Full example: everything together
+
+```java
+// file: com/example/college/Student.java
+package com.example.college;
+
+public class Student {
+    private final String name;
+    private int age;
+    private final int rollNumber;
+
+    public Student(String name, int age, int rollNumber) {
+        this.name = name;
+        setAge(age);                          // reuse validation
+        this.rollNumber = rollNumber;
+    }
+
+    public String getName()  { return name; }
+    public int getAge()      { return age; }
+    public int getRollNumber() { return rollNumber; }
+
+    public void setAge(int age) {
+        if (age < 0 || age > 120) throw new IllegalArgumentException("Invalid age: " + age);
+        this.age = age;
+    }
+
+    public void print() {
+        System.out.println(name + ", " + age + ", " + rollNumber);
+    }
+}
+```
+
+```java
+// file: com/example/college/EngineeringStudent.java
+package com.example.college;
+
+public class EngineeringStudent extends Student {
+    private final String college;
+
+    public EngineeringStudent(String name, int age, int rollNumber, String college) {
+        super(name, age, rollNumber);          // parent constructor runs first
+        this.college = college;
+    }
+
+    @Override
+    public void print() {
+        super.print();                          // parent's part
+        System.out.println("College: " + college);
+    }
+}
+```
+
+```java
+// file: com/example/Main.java
+package com.example;
+
+import com.example.college.EngineeringStudent;
+import com.example.college.Student;
+
+public class Main {
+    public static void main(String[] args) {
+        EngineeringStudent es = new EngineeringStudent("Aditya", 28, 1001, "IIT Guwahati");
+        es.print();
+        // Aditya, 28, 1001
+        // College: IIT Guwahati
+
+        Student s = es;                         // upcast: allowed
+        s.print();                              // still prints both lines (runtime dispatch)
+        // s.getCollege() would not compile: Student has no such method
+    }
+}
+```
+
+---
+
+### 9. Quick comparison tables
+
+| | Encapsulation | Inheritance |
+|---|---|---|
+| Purpose | Protect state and invariants | Reuse code and model IS-A |
+| Mechanism | `private` + controlled methods | `extends` |
+| Question it answers | *Who may touch this data?* | *What can I reuse from a more general type?* |
+
+| | `this` | `super` |
+|---|---|---|
+| Refers to | Current object | Parent-class part of the current object |
+| Field access | `this.x` | `super.x` |
+| Method call | `this.m()` | `super.m()` |
+| Constructor call | `this(...)` (same class) | `super(...)` (parent) |
+| Usable as a value | Yes (`return this;`) | No |
+| In static context | No | No |
+
+---
+
+### 10. Interview questions
+
+| Question | Answer |
+|---|---|
+| What is encapsulation? | Bundling data and methods together and hiding the data behind a controlled public interface, so the object can enforce its own invariants. |
+| Encapsulation vs abstraction? | Encapsulation hides *data/state*. Abstraction hides *complexity/implementation* and exposes only essential behaviour. |
+| Are getters/setters always required? | No. Expose only what is needed. Prefer behaviour methods and immutability. Setters for every field defeat encapsulation. |
+| How can a getter break encapsulation? | By returning a reference to a mutable internal object. Return a copy or unmodifiable view. |
+| How many access modifiers? Order? | Four: `private` < package-private < `protected` < `public`. |
+| What is the default access? | Package-private (no keyword). Interface members are `public`. |
+| Can a top-level class be `private` or `protected`? | No. Only `public` or package-private. |
+| Is `private` per object or per class? | Per **class**. Other instances of the same class can access it. |
+| Who can access `protected`? | Same package, plus subclasses in other packages (through a reference of the subclass type). |
+| Can a child reduce the visibility of an overridden method? | No. It may only keep or widen it. |
+| Does `import` load the class or copy code? | No. It is a compile-time name shortcut. Classes load lazily at runtime. |
+| Does `import java.util.*` include `java.util.concurrent`? | No. Sub-packages are separate. |
+| Which package is imported by default? | `java.lang`. |
+| Why doesn't Java support multiple inheritance of classes? | To avoid the diamond problem (ambiguous methods and duplicated state) and complexity. Interfaces provide multiple inheritance of type. |
+| How does Java handle the diamond with default methods? | The class must override and pick explicitly, e.g. `B.super.show()`. |
+| Is a constructor inherited? | No. |
+| What does the compiler insert if you don't write `super()`? | An implicit `super();`. It fails to compile if the parent has no accessible no-arg constructor. |
+| Can `super(...)` and `this(...)` be in the same constructor? | No. Each must be the first statement. |
+| Can `super` be chained (`super.super.x`)? | No. Not valid Java. |
+| Do private members get inherited? | They exist in the object but aren't accessible from the child. Use protected/public accessors. |
+| Method overriding vs field hiding? | Methods dispatch on the runtime object. Fields are resolved by the reference type. |
+| What does every class extend? | `java.lang.Object`. |
+| Inheritance vs composition? | Inheritance = IS-A, tight coupling. Composition = HAS-A, more flexible. Prefer composition unless it's a true IS-A. |
+| Why avoid calling overridable methods in constructors? | The parent constructor runs before the child's fields are initialized, so the override may see default values. |
+| Can we prevent inheritance? | `final class`, private constructors, or `sealed` classes (Java 17+). |
+
+
+### 11. Summary / mental model
+
+```
+ENCAPSULATION                          INHERITANCE
+─────────────────────────              ───────────────────────────────
+private data                           class Child extends Parent
++ public behaviour (with rules)         Child IS-A Parent
+= object protects its own state         reuses code, enables polymorphism
+
+Access:  private < (package) < protected < public
+
+Java class inheritance:  single ✔   multilevel ✔   hierarchical ✔   multiple ✘
+Multiple types via interfaces (diamond resolved with X.super.method())
+
+super.field      → parent's field (if hidden)
+super.method()   → parent's implementation (extend, don't replace)
+super(args)      → parent constructor, must be first, runs first
+```
+
+**Remember:**
+1. Hide state (`private`), expose behaviour, and let methods enforce the rules.
+2. Never leak mutable internals through getters. Never use `double` for money.
+3. Default to the strictest access level that works.
+4. `import` is a naming shortcut. Packages are namespaces, and the directory must match.
+5. The reference type decides what you can call. The object type decides which override runs.
+6. Constructors chain parent-first. `super()` is implicit and needs an accessible no-arg parent constructor.
+7. Prefer composition. Use inheritance only for a real IS-A relationship, and design for it or forbid it.
+
+
+
+
+
+
+
 
 
 
@@ -5117,7 +7440,7 @@ Another common one: an **Order** in an e-commerce system (like Flipkart) — fie
 Every field, if not explicitly assigned, gets a default value **automatically** (this only applies to instance/class fields — local variables inside methods do **not** get default values and will cause a compile error if used unassigned).
 
 | Type | Default value |
-|||
+|-|-|
 | `int` | `0` |
 | `double` | `0.0` |
 | `boolean` | `false` |
