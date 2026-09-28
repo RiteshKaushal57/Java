@@ -4573,10 +4573,456 @@ Notice that `fib(3)` and `fib(2)` appear **multiple times** in the tree above �
 11. Explain why Java doesn't let you decide which of two overloaded methods to call based on the *type you intend to assign the result to* (e.g., `int x = fun();` vs. `String s = fun();`).    
 
 
+## 12. Object-Oriented Programming (OOP) — Introduction
+
+### 1. The Problem with Traditional Programming
+
+Before OOP, when you needed to represent a **Student** entity, you'd create independent, scattered variables:
+
+```java
+String name = "Aditya";
+int age = 28;
+int rollNumber = 1001;
+String college = "IIT Guwahati";
+```
+
+#### Problems with this approach
+
+| # | Problem | Why it hurts |
+|---|---------|--------------|
+| 1 | **Too many independent variables** | No logical grouping. `name`, `age`, `rollNumber`, `college` are unrelated in the eyes of the compiler. |
+| 2 | **Passing to functions is painful** | Every function needs all 4 variables passed separately. Miss one → broken. |
+| 3 | **New student = new set of variables** | `name2`, `age2`, `rollNumber2`... naming becomes a mess. Doesn't scale. |
+| 4 | **No authority / ownership over data** | Any code anywhere can modify these variables. No one "owns" the data. |
+
+```java
+// Traditional — ugly and error-prone
+String name  = "Aditya";
+int    age   = 28;
+int    rollNumber = 1001;
+String college    = "IIT Guwahati";
+
+String name2  = "Rohit";
+int    age2   = 28;
+int    rollNumber2 = 102;
+String college2    = "IIT Guwahati";
+
+// To print a student you MUST pass all 4 individually
+static void print(String name, int age, int rollNumber, String college) {
+    System.out.println(name + " " + age + " " + rollNumber + " " + college);
+}
+```
+
+
+### 2. What is OOP?
+
+**Object-Oriented Programming (OOP)** is a **programming paradigm** — a *way of thinking and writing code*.
+
+#### Core Philosophy
+> "If you want to solve a **real-world problem**, first **mimic the real world** in your programming."
+
+- In the real world, a **Student** is an *object* — one entity with multiple attributes.
+- OOP says: represent it as **one object** in code too, not as scattered variables.
+
+#### Key insight on "mimicking"
+You do **NOT** need to copy the entire real world. A human plays many roles — student, son/daughter, employee. You only model the **characteristics relevant to your problem**.
+
+```
+Real World                     Programming World
+─────────────────              ─────────────────────────────
+Student (abstract idea)   →   class Student { ... }
+Aditya (a real student)   →   Student s1 = new Student();
+Rohit  (a real student)   →   Student s2 = new Student();
+```
+
+#### Other paradigms (for context)
+- **Procedural** — code as a sequence of instructions (C)
+- **Functional** — code as mathematical functions (Haskell, parts of Java 8+)
+- **OOP** — code modelled around objects (Java, C++, Python)
+
+
+### 3. Classes — The Blueprint
+
+A **class** is a blueprint/template that describes *what an object looks like* — its structure and behaviour. **No memory is allocated** for a class alone.
+
+```java
+class Student {
+    // Fields (Characteristics / State)
+    String name;
+    int    age;
+    int    rollNumber;
+    String college;
+}
+```
+
+### Analogy
+Think of a class like an **architectural blueprint** of a house. The blueprint itself is not a house — it just tells you how a house will be built. The actual house (object) is built later.
+
+
+### 4. Objects — The Real Instance
+
+An **object** is a concrete instance of a class. This is where actual memory gets allocated.
+
+#### Creating an Object — Syntax
+
+```java
+// Declaration + Definition (two separate lines)
+Student s1;               // Step 1: Declare reference variable
+s1 = new Student();       // Step 2: Allocate memory and assign
+
+// Combined (preferred shorthand)
+Student s1 = new Student();
+```
+
+#### Setting field values using the dot (`.`) operator
+
+```java
+s1.name       = "Aditya";
+s1.age        = 28;
+s1.rollNumber = 1001;
+s1.college    = "IIT Guwahati";
+
+Student s2 = new Student();
+s2.name       = "Rohit";
+s2.age        = 28;
+s2.rollNumber = 102;
+s2.college    = "IIT Guwahati";
+```
+
+#### Accessing fields
+
+```java
+System.out.println(s1.name);       // Aditya
+System.out.println(s2.rollNumber); // 102
+```
+
+#### The `new` keyword
+- `new` tells the JVM: **"Allocate a chunk of memory in the Heap for this object."**
+- It returns the **starting memory address** of that allocated block.
+- This is **Dynamic Memory Allocation** (happens at Run Time).
 
 
 
+### 5. Memory Model: Stack vs Heap
 
+```
+┌─────────────────────────────────────────────┐
+│                  HEAP MEMORY                │
+│                                             │
+│   ┌──────────────────┐ ┌─────────────────┐  │
+│   │  Object (unnamed)│ │ Object (unnamed)│  │
+│   │  name = "Aditya" │ │  name = "Rohit" │  │
+│   │  age  = 28       │ │  age  = 28      │  │
+│   │  rollNo = 1001   │ │  rollNo = 102   │  │
+│   │  college = "IIT" │ │  college = "IIT"│  │
+│   │  [addr: 1001]    │ │  [addr: 2001]   │  │
+│   └──────────────────┘ └─────────────────┘  │
+└─────────────────────────────────────────────┘
+
+┌─────────────────────────┐
+│      STACK MEMORY       │
+│  s1 → 1001 (address)    │
+│  s2 → 2001 (address)    │
+└─────────────────────────┘
+```
+
+| Memory Region | Stores | Managed by |
+|---|---|---|
+| **Heap** | Actual objects (anonymous, unnamed) | Garbage Collector (JVM) |
+| **Stack** | Reference variables (named), primitive locals | Automatically (method scope) |
+
+> **Tip:** Every time you call `new`, a new block in the Heap is created. The Stack only holds the *reference* (address) pointing to that block.
+
+
+
+### 6. Reference Variables
+
+```java
+Student s1 = new Student();
+```
+
+- `s1` is **NOT** the object. It is a **reference variable**.
+- It lives in the **Stack** and stores the **memory address** of the actual object in the **Heap**.
+- The actual object in the Heap is **unnamed** — it has no name of its own in Java.
+
+```
+s1  ──────────────────►  [ Student object @ Heap address 1001 ]
+                          { name, age, rollNumber, college }
+```
+
+#### The dot operator (`.`)
+The `.` operator **dereferences** the reference variable — it follows the stored address to reach the actual object in Heap, then accesses the requested field or method.
+
+```java
+s1.name              // Follow s1's address → reach object → get 'name' field
+s1.markAttendance()  // Follow s1's address → reach object → call method
+```
+
+> **Interview question:** *"Is `s1` an object?"*  
+> **Answer:** No. `s1` is a **reference variable** that *points to* an object. The actual object is in Heap and is anonymous.
+
+
+
+### 7. Compile Time vs Run Time / Static vs Dynamic Memory
+
+| Term | When it happens | Example |
+|---|---|---|
+| **Compile Time** | During code compilation (before running) | Syntax errors, type checking |
+| **Run Time** | While the program is actually executing | Object creation, logic execution |
+| **Static Memory Allocation** | Compile Time | `int x = 4;` → stack frame allocated when method compiles |
+| **Dynamic Memory Allocation** | Run Time (via `new`) | `new Student()` → heap block allocated while program runs |
+
+```java
+int x = 4;                      // Static allocation — compile time, goes to Stack
+Student s1 = new Student();     // Dynamic allocation — run time, object goes to Heap
+```
+
+> **Note:** The `new` keyword is the trigger for **dynamic (heap) memory allocation** in Java. This is why object memory is flexible and not fixed at compile time.
+
+
+
+### 8. Primitive vs Non-Primitive (User-Defined) Data Types
+
+```
+Data Types in Java
+├── Primitive (built-in)
+│   ├── Integer types  → byte, short, int, long
+│   ├── Floating point → float, double
+│   ├── Boolean        → boolean
+│   └── Character      → char
+│
+└── Non-Primitive (Reference Types)
+    ├── Built-in       → String, Arrays
+    └── User-Defined   → Your own classes (e.g., Student, BankAccount)
+```
+
+When you write `class Student { ... }` and then `Student s1 = new Student();`:
+- You have **created your own data type** called `Student`.
+- This is called a **User-Defined Data Type**.
+- Just like `int x` declares an integer, `Student s1` declares a Student-type reference.
+
+
+
+### 9. Characteristics (Fields) vs Behaviours (Methods)
+
+A real-world object has two aspects — and OOP models **both** inside the class:
+
+| Aspect | Real World | In Java |
+|---|---|---|
+| **Characteristics** (State/Data) | Student's name, age, roll no. | Fields / Instance variables |
+| **Behaviours** (Actions) | Student marks attendance, prints details | Methods (functions inside a class) |
+
+```java
+class Student {
+
+    // ── FIELDS (Characteristics / State) ──────────────────────
+    String name;
+    int    age;
+    int    rollNumber;
+    String college;
+
+    // ── METHODS (Behaviours) ───────────────────────────────────
+
+    // Behaviour 1: Mark attendance
+    void markAttendance() {
+        // 'name' here refers to THIS object's own name field
+        // No parameter needed — the method already has access to it!
+        System.out.println("Attendance marked by " + name);
+    }
+
+    // Behaviour 2: Print all details
+    void print() {
+        // Again, no parameters needed — fields are directly accessible
+        System.out.println(name + ", " + age + ", " + rollNumber + ", " + college);
+    }
+}
+```
+
+### Why put `print()` inside the class?
+
+- **Before OOP:** `print(String name, int age, int rollNo, String college)` — you had to pass all 4 parameters manually.
+- **With OOP:** `s1.print()` — the method *already has access* to all fields of its own object. **Zero parameters needed.**
+
+> **Tip:** Methods inside a class have **implicit access** to all fields of that object — no need to pass them as arguments. This is the beginning of encapsulation.
+
+
+
+### 10. Naming Conventions
+
+These are **conventions (good practices)**, not compiler-enforced rules. Breaking them won't cause errors, but it's unprofessional.
+
+| Element | Convention | Example |
+|---|---|---|
+| **Variables** (primitive & reference) | `camelCase` — first word lowercase, subsequent words capitalized | `firstName`, `rollNumber`, `s1` |
+| **Classes** | `PascalCase` — every word starts with capital | `Student`, `BankAccount`, `MyClass` |
+| **Methods / Functions** | `camelCase` — same as variables | `markAttendance()`, `printDetails()` |
+| **Constants** | `UPPER_SNAKE_CASE` | `MAX_SIZE`, `PI` |
+
+```java
+// ✅ Correct
+class BankAccount {
+    int accountNumber;
+    void depositMoney() { }
+}
+
+// ❌ Avoid (works but bad practice)
+class bank_account {
+    int AccountNumber;
+    void DepositMoney() { }
+}
+```
+
+
+
+### 11. Physical vs Non-Physical Objects
+
+OOP isn't limited to mimicking physical things. **Any complex concept** with multiple attributes and behaviours can be a class.
+
+| Object | Physical? | Example fields |
+|---|---|---|
+| `Student` | ✅ Yes | name, age, rollNumber |
+| `Animal` | ✅ Yes | type, numberOfLegs, isWild |
+| `BankAccount` | ❌ No | accountNumber, ifscCode, branch, balance |
+| `Location` | ❌ No | latitude, longitude, altitude |
+| `Order` | ❌ No | orderId, items, totalPrice, status |
+
+> **Note:** The rule of thumb: if something is **too complex for a single primitive variable** and has multiple related attributes — model it as a class.
+
+
+### 12. Java is (Almost) Purely OOP
+
+In Java, **everything lives inside a class**. You cannot write even a single line of executable code without a class.
+
+```java
+// Minimum valid Java program
+public class Demo {                            // ← Must have a class
+    public static void main(String[] args) {   // ← Must have main method
+        // Your code goes here
+    }
+}
+```
+
+- `Demo` is a class.
+- `main` is a method (behaviour) of `Demo`.
+- You declare and use other objects (like `Student`) inside `main`.
+
+**Why "almost" purely OOP?**
+- Java has **primitive types** (`int`, `char`, `boolean`, etc.) which are NOT objects.
+- A truly pure OOP language (like Smalltalk) has no primitives — everything is an object.
+- Java keeps primitives for performance. (Note: wrapper classes `Integer`, `Character`, etc. give them object-like capabilities.)
+
+
+
+### 13. Full Working Code Example
+
+```java
+// ─── Student class (can be in same file or separate Student.java) ───
+
+class Student {
+
+    // Fields — Characteristics
+    String name;
+    int    age;
+    int    rollNumber;
+    String college;
+
+    // Method — Behaviour 1
+    void markAttendance() {
+        System.out.println("Attendance marked by " + name);
+    }
+
+    // Method — Behaviour 2
+    void print() {
+        System.out.println("Name: "      + name
+                         + ", Age: "     + age
+                         + ", Roll No: " + rollNumber
+                         + ", College: " + college);
+    }
+}
+
+// ─── Main class — Entry point ───
+
+public class Demo {
+    public static void main(String[] args) {
+
+        // Create object s1 (Aditya)
+        Student s1 = new Student();   // 'new' → allocates heap memory
+        s1.name       = "Aditya";
+        s1.age        = 28;
+        s1.rollNumber = 1001;
+        s1.college    = "IIT Guwahati";
+
+        // Create object s2 (Rohit)
+        Student s2 = new Student();   // separate heap block
+        s2.name       = "Rohit";
+        s2.age        = 28;
+        s2.rollNumber = 102;
+        s2.college    = "IIT Guwahati";
+
+        // Call behaviours
+        s1.markAttendance();  // Attendance marked by Aditya
+        s2.markAttendance();  // Attendance marked by Rohit
+
+        s1.print();  // Name: Aditya, Age: 28, Roll No: 1001, College: IIT Guwahati
+        s2.print();  // Name: Rohit,  Age: 28, Roll No: 102,  College: IIT Guwahati
+    }
+}
+```
+
+**Output:**
+```
+Attendance marked by Aditya
+Attendance marked by Rohit
+Name: Aditya, Age: 28, Roll No: 1001, College: IIT Guwahati
+Name: Rohit, Age: 28, Roll No: 102, College: IIT Guwahati
+```
+
+---
+
+## 14. Key Interview Points
+
+| Question | Answer |
+|---|---|
+| Is `s1` an object? | ❌ No. `s1` is a **reference variable** stored in Stack, pointing to an unnamed object in Heap. |
+| Where are objects stored? | **Heap memory** |
+| Where are reference variables stored? | **Stack memory** |
+| What does `new` do? | Allocates a block in Heap at **runtime** (dynamic memory allocation) |
+| What is a class? | A **blueprint/template** for an object — no memory allocated for the class itself |
+| What is an object? | A **runtime instance** of a class — actual memory allocated in Heap |
+| What is a User-Defined Data Type? | A class you create yourself (e.g., `Student`) as opposed to built-in types |
+| Why are objects called non-primitive types? | Because they can't be represented by a single value; they're containers holding multiple values |
+| What is the dot (`.`) operator? | It **dereferences** a reference variable — follows the Heap address to access fields/methods |
+| Why does Java have primitives if it's OOP? | Performance. Pure OOP with no primitives is slower. Wrapper classes (`Integer`, etc.) bridge the gap. |
+| What is dynamic memory allocation? | Memory allocated at **runtime** using `new`, as opposed to static allocation at compile time |
+
+
+
+## 15. Quick Summary / Mental Model
+
+```
+REAL WORLD                    JAVA (Programming World)
+──────────────────────────    ──────────────────────────────────────
+Concept/Blueprint of          class Student { }
+a "Student"                   ↑ Just a blueprint, NO memory allocated
+
+A specific student            Student s1 = new Student();
+"Aditya"                      ↑ Object created in Heap,
+                                s1 (reference var) in Stack
+
+Student's attributes          Fields: name, age, rollNumber, college
+(characteristics/state)
+
+Student's actions             Methods: markAttendance(), print()
+(behaviours)
+
+Access attributes/methods     Dot operator:  s1.name  /  s1.print()
+```
+
+> **Coming in future videos — The 4 Pillars of OOP:**
+> 1. **Encapsulation** — bundling data + methods together, controlling access
+> 2. **Inheritance** — a class can inherit from another class
+> 3. **Polymorphism** — one interface, many implementations
+> 4. **Abstraction** — hiding implementation details, showing only what's necessary
 
 
 
