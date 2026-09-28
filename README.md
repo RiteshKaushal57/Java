@@ -212,14 +212,14 @@ Applets were deprecated around **JDK 10/11** (per the lecture's approximation) o
 
 **Intermediate**
 4. Explain, with an example, why the same C++ source file produces different binaries on Windows/x86 vs macOS/ARM.  
-5. What is an ISA, and why does it differ between Intel and ARM processors?  
+5. What is an ISA, and why does it differ between Intel and ARM processors?    
 6. If bytecode is platform-independent, why does the JVM need to be platform-dependent?  
 
 **Advanced / Interview-style**
 7. "Java solved portability by removing the need to compile per-platform." Critically evaluate this statement — is compilation truly eliminated, or just moved?  
-8. Explain how Java's Sandbox Model relates architecturally to its portability solution. Why do both rely on the JVM specifically?  
-9. Why didn't C/C++ adopt a bytecode+VM model themselves, and why did Microsoft succeed in doing this with a *new* language (C#) instead of retrofitting C++?  
-10. A candidate says "Java is slower than C++, so portability doesn't matter today." How would you respond, using the historical argument from this lecture about processor speed trends?
+8. Explain how Java's Sandbox Model relates architecturally to its portability solution. Why do both rely on the JVM specifically?    
+9. Why didn't C/C++ adopt a bytecode+VM model themselves, and why did Microsoft succeed in doing this with a *new* language (C#) instead of retrofitting C++?     
+10. A candidate says "Java is slower than C++, so portability doesn't matter today." How would you respond, using the historical argument from this lecture about processor speed trends?   
 
 
 ## 2. JVM, JRE, JDK & Java Editions (JSE/JEE/JME)
@@ -490,20 +490,20 @@ public class Demo {
 #### Practice Questions
 
 **Basic**
-1. Write the exact terminal commands to compile and then run a file named `App.java`.
-2. What does JRE stand for, and what two components make it up?
-3. True or False: The JDK contains the JRE within it.
+1. Write the exact terminal commands to compile and then run a file named `App.java`.    
+2. What does JRE stand for, and what two components make it up?     
+3. True or False: The JDK contains the JRE within it.   
 
 **Intermediate**
-4. Explain the difference between a compiler and an interpreter using the "read all at once" vs "read line by line" framing.
-5. List the three core responsibilities of the JVM (not just bytecode conversion).
-6. Why can't you run a Java program using only a JVM, with no JRE?
+4. Explain the difference between a compiler and an interpreter using the "read all at once" vs "read line by line" framing.    
+5. List the three core responsibilities of the JVM (not just bytecode conversion).    
+6. Why can't you run a Java program using only a JVM, with no JRE?     
 
 **Advanced / Interview-style**
-7. "Java is an interpreted language." Is this a fully accurate statement? Justify your answer using the compiled+interpreted hybrid model.
-8. Explain how the JIT compiler decides what to compile vs. what the interpreter continues to handle. Why doesn't the JVM just JIT-compile everything on first execution?
-9. In the 1990s, why did Java's designers choose an interpreter-first approach for the bytecode execution stage rather than a compiler, given that a compiler alone would technically produce faster steady-state code?
-10. A colleague says "just install the JRE, we don't need the full JDK for local development." Explain why this is impractical for actually writing and compiling Java code, tying it back to what's absent in a bare JRE.
+7. "Java is an interpreted language." Is this a fully accurate statement? Justify your answer using the compiled+interpreted hybrid model.   
+8. Explain how the JIT compiler decides what to compile vs. what the interpreter continues to handle. Why doesn't the JVM just JIT-compile everything on first execution?    
+9. In the 1990s, why did Java's designers choose an interpreter-first approach for the bytecode execution stage rather than a compiler, given that a compiler alone would technically produce faster steady-state code?    
+10. A colleague says "just install the JRE, we don't need the full JDK for local development." Explain why this is impractical for actually writing and compiling Java code, tying it back to what's absent in a bare JRE.    
 11. Compare JSE, JEE (Jakarta EE), and JME — what problem was each created to solve, and why is JME now considered obsolete?
 
 
@@ -913,9 +913,9 @@ int classCount = 5;
 #### Practice Questions
 
 **Basic**
-1. Write a declaration+definition statement for an `int` variable named `age` holding `25`.
-2. What is the difference between an identifier and a literal? Give an example of each from the same line of code.
-3. Which of Java's primitive types is 16 bits wide and used to represent a single character?
+1. Write a declaration+definition statement for an `int` variable named `age` holding `25`.   
+2. What is the difference between an identifier and a literal? Give an example of each from the same line of code.   
+3. Which of Java's primitive types is 16 bits wide and used to represent a single character?   
 
 **Intermediate**
 4. Why does the following fail to compile, and how would you fix it?
@@ -930,10 +930,10 @@ int classCount = 5;
    ```
 
 **Advanced / Interview-style**
-8. A teammate says "Java's `char` is basically the same as C's `char`, just wider." Correct this statement — what standard does each rely on, and why did Java need the wider type?
-9. Explain why Java enforces static typing at compile time. What class of bugs does this catch that a dynamically typed language might not catch until runtime?
-10. Why does Java prefer `double` over `float` for virtually all real-world numeric work today, when historically `float` existed as the "lighter" option? Name at least two distinct reasons.
-11. Explain the practical difference between declaration and definition using a concrete scenario (e.g., a calculator app reading two numbers from user input) — why can't you always combine them into one statement?
+8. A teammate says "Java's `char` is basically the same as C's `char`, just wider." Correct this statement — what standard does each rely on, and why did Java need the wider type?  
+9. Explain why Java enforces static typing at compile time. What class of bugs does this catch that a dynamically typed language might not catch until runtime?  
+10. Why does Java prefer `double` over `float` for virtually all real-world numeric work today, when historically `float` existed as the "lighter" option? Name at least two distinct reasons.   
+11. Explain the practical difference between declaration and definition using a concrete scenario (e.g., a calculator app reading two numbers from user input) — why can't you always combine them into one statement?   
 12. Java reserves the keywords `goto` and `const` but never uses them as functioning language features. Why do you think a language designer would reserve a word it doesn't intend to implement?
 
 
@@ -953,7 +953,7 @@ Both are classic interview topics because they reveal whether you understand wha
 
 
 
-### 1. How Negative Numbers Are Stored — Two's Complement
+## 1. How Negative Numbers Are Stored — Two's Complement
 
 #### Step-by-step recipe
 
@@ -1631,7 +1631,7 @@ double result = p1 + p2 + p3;
 
 
 
-### 6. Operators in Java
+## 6. Operators in Java
 
 
 
@@ -3984,7 +3984,7 @@ cache — no need to go back to RAM at all.
 9. Why can't the address-formula approach work for a data structure whose elements are NOT contiguous in memory (e.g., a linked list)? Tie your answer back to what specifically the random-access formula depends on.    
 10. Explain why a reference variable pointing to a `String` takes a fixed, predictable number of bytes (e.g., 4) in the containing array, even though the `String` it points to can be arbitrarily long.
 
-## Core Java — Video 11: Functions, Overloading, Scope & Recursion
+## 11. Functions, Overloading, Scope & Recursion
 
 ### 1. Why Functions Exist — The Reusability Problem
 
@@ -4781,7 +4781,7 @@ Account(String holder, double balance) {
 
 
 
-## Golden Rules — Constructors (full recap)
+#### Golden Rules — Constructors (full recap)
 
 - ✅ Unassigned fields get automatic defaults: `0` for numbers, `false` for `boolean`, `null` for any object type — but **local variables never get defaults**, they must be explicitly assigned before use.
 - ✅ Writing even one constructor removes Java's free default no-arg constructor — if you still need `new ClassName()` with no args, you must write it yourself.
