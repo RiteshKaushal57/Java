@@ -7917,7 +7917,452 @@ c.drive();   // ElectricCar.drive()       static / private / final / fields: NOT
 9. Depend on abstractions, so adding a new implementation needs no changes to callers.
 
 
+## 18. Class Internals: File Rules, Wrapper Classes, Boxing, Equality, Abstract Classes, POJOs
 
+
+
+### 0. Corrections to the video (read first)
+
+| Video says | Accurate version |
+|---|---|
+| "One public class per file, name must match" | Both are **Java Language Specification rules**, not JVM conveniences the video frames them as — but the video's *reasoning* (why the rule helps the JVM/compiler locate the entry point) is a correct and commonly cited justification. Precisely: a `.java` file may have **zero or one** public top-level type (class, interface, enum, record); if one exists, the file name must match it. A file can have **zero** public classes (all package-private) — the video implies you always need one, which isn't quite right. |
+| `new Integer(10)` conceptual walkthrough | Correct for intuition, but the `Integer(int)` **constructor is deprecated since Java 9** and **removed in Java 21** — it will not compile on modern Java. Always use `Integer.valueOf(...)` or, better, rely on autoboxing. |
+| Integer cache range "-128 to +127 (byte range)" | Correct default range, but it's **configurable**: `-XX:AutoBoxCacheMax=<n>` raises the upper bound (JVM-specific, HotSpot). Also applies to `Byte`, `Short`, `Long`, `Character` (0-127), and `Boolean` (`TRUE`/`FALSE`) — not just `Integer`. |
+| "`equals()` comes from some parent, we'll see later" | It comes from **`java.lang.Object`**, which every class inherits (directly or indirectly). `Integer` overrides it to compare `int` values instead of references. |
+| Abstract class Q&A: "final method can't be abstract... contradictory" | Precisely: `abstract` conflicts with `final`, `private`, and `static` because all three either prevent overriding (`final`, `private`) or don't participate in it (`static`) — but abstract *by definition* requires overriding. |
+| POJO defined loosely | POJO strictly means: no framework-imposed constraints (no required base class, no required annotations, no required interface) — from Rod Johnson/Martin Fowler's original 2000 coinage, as a reaction against heavyweight EJB requirements. Whether it holds business logic (anemic vs rich) is a separate, later distinction, correctly separated in the video. |
+
+
+
+### 1. Why only one public class per `.java` file, and why its name must match the file
+
+**The rule:** A source file may contain **at most one `public` top-level type** (class, interface, enum, record). If it has one, the **file name must exactly match that type's name** (case-sensitive), e.g. `Demo.java` → `public class Demo`.
+
+```java
+// Demo.java
+public class Demo { }          // OK: matches file name
+class Helper { }                // OK: package-private, any number allowed
+// public class Sample { }      // ERROR: "the public type Sample must be defined in its own file"
+```
+
+#### Why this rule exists
+
+1. **The JVM needs an unambiguous entry point.** Execution always starts from a `main` method. If multiple public classes could exist per file, the JVM/launcher would have no deterministic way to know which class (if any) holds the `main` it should call.
+2. **`main` is `public static`** so the JVM can call it without creating an instance (`static`) and from outside the package (`public`) — the file's public class is the one guaranteed accessible from anywhere, including the launcher.
+3. **Fast class loading by file name.** When you run `java Demo`, the JVM looks for `Demo.class`, generated from `Demo.java`. If the class name didn't match the file name, the JVM (or `javac`) would need to open and scan every file to find the right class — expensive and ambiguous. Matching names make **lookup O(1)**: file name → class name → `.class` file, directly.
+4. **Multi-file applications work the same way.** With many `.java` files, exactly one file's public class contains `main` (or is designated as the entry point in `pom.xml`/`build.gradle`/manifest). You compile everything, then run specifically **that** class: `java com.example.Demo`. The rule just guarantees that whichever file that is, `javac`/`java` can locate it unambiguously.
+
+#### Beyond the video
+
+- The rule is enforced by `javac`, not the JVM itself — it is a **language/compiler rule** (JLS §7.6), independent of how class loading later works.
+- A compiled `.class` file's internal name (in its bytecode constant pool) is what the JVM actually resolves; the source-to-file mapping matters only at compile time.
+- With build tools (Maven/Gradle) and IDEs, you rarely invoke `javac`/`java` by hand, but the underlying rule is unchanged and still enforced by the compiler.
+- The **manifest's `Main-Class`** entry in an executable JAR is the modern equivalent of "which class has `main`" — it removes the need to type the class name at all: `java -jar app.jar`.
+
+
+
+### 2. Wrapper classes
+
+Java's type system splits into **primitives** (`int`, `long`, `short`, `byte`, `float`, `double`, `char`, `boolean`) and **non-primitives / reference types** (objects, arrays, user-defined types). For every primitive, Java provides a corresponding **wrapper class**:
+
+| Primitive | Wrapper class |
+|---|---|
+| `int` | `Integer` |
+| `long` | `Long` |
+| `short` | `Short` |
+| `byte` | `Byte` |
+| `float` | `Float` |
+| `double` | `Double` |
+| `char` | `Character` |
+| `boolean` | `Boolean` |
+
+```java
+int x = 10;                        // primitive: stored directly, e.g. on the stack (as a local var)
+Integer y = new Integer(10);       // deprecated/removed constructor — conceptual illustration only
+```
+
+Conceptually, a wrapper class holds:
+- a **private, final** primitive `value` field,
+- constructors (mostly deprecated now),
+- a static factory `valueOf(...)`,
+- an instance accessor (`intValue()`, `doubleValue()`, etc.),
+- an overridden `equals()`, `hashCode()`, `toString()`, `compareTo()`.
+
+#### Why wrapper classes exist
+
+1. **Java's collections and generics only work with objects**, never primitives. `ArrayList<int>` is illegal; `ArrayList<Integer>` works because `Integer` is a class.
+2. **Object features** — nullability, methods, participation in the type hierarchy (`Object` superclass), utility methods (`Integer.parseInt`, `Integer.MAX_VALUE`, `Integer.compare`) — none of these exist on bare primitives.
+
+#### Why primitives still exist (despite wrappers covering everything)
+
+1. **Legacy**: Java's early design deliberately kept C/C++-style primitives to ease adoption by developers from those languages.
+2. **Performance**: primitives are stored directly (no object header, no heap allocation, no indirection), making arithmetic and storage significantly faster and more memory-efficient than boxed equivalents. Primitives are used constantly, including inside collection-adjacent optimized paths (and are essential wherever performance matters, e.g. tight loops, large arrays).
+
+#### Beyond the video
+
+- **`Number`** is the common abstract superclass of `Integer`, `Long`, `Double`, etc. (not `Object` directly for numeric conversions) — it defines `intValue()`, `longValue()`, `doubleValue()`, etc.
+- All wrapper classes are **immutable and `final`** (cannot be subclassed) — this guarantees their value never changes after creation, which is essential for safe caching and use as `HashMap` keys.
+- **`Character`** and **`Boolean`** don't extend `Number` (no numeric conversion methods) since they aren't numeric types.
+- Primitive arrays (`int[]`) and boxed arrays (`Integer[]`) are **not interchangeable**: `int[]` is more memory-efficient (no per-element object overhead); this matters heavily in performance-sensitive or large-data code.
+
+
+
+### 3. Autoboxing and unboxing
+
+| Term | Direction | Example |
+|---|---|---|
+| **Autoboxing** | primitive → wrapper | `Integer y = x;` (where `x` is `int`) |
+| **Unboxing** | wrapper → primitive | `int y = x;` (where `x` is `Integer`) |
+
+Both happen **automatically**, inserted by the **compiler** — no manual casting needed.
+
+```java
+int x = 10;
+Integer y = x;              // autoboxing
+// compiler internally rewrites to:  Integer y = Integer.valueOf(x);
+
+Integer a = 20;
+int b = a;                  // unboxing
+// compiler internally rewrites to:  int b = a.intValue();
+```
+
+#### How autoboxing evolved
+
+```java
+Integer y = new Integer(x);          // old Java: direct constructor call (now deprecated/removed)
+Integer y = Integer.valueOf(x);      // modern Java: factory method, uses internal caching (see §5)
+```
+
+Always prefer relying on the compiler's autoboxing, or call `Integer.valueOf(...)` explicitly if you must — never call the constructor.
+
+#### Where boxing/unboxing kicks in
+
+| Context | Example |
+|---|---|
+| **Assignment statements** | `Integer y = x;` / `int y = x;` |
+| **Method calls (arguments and parameters)** | Passing an `int` where an `Integer` parameter is expected, or vice versa |
+| **Arithmetic operations** | `Integer a = 10; Integer b = 20; int sum = a + b;` — both operands are unboxed, added as primitives, then the `int` result is stored (or reboxed if assigned to an `Integer`) |
+
+```java
+static void printInt(int x) { System.out.println(x); }
+
+printInt(50);                // fine, no boxing needed
+Integer boxed = 50;
+printInt(boxed);             // unboxing: boxed.intValue() passed in
+
+Integer a = 10, b = 20;
+int sum = a + b;             // both unboxed, then added
+```
+
+#### Beyond the video
+
+- Autoboxing/unboxing also happens in **enhanced for-loops**, **ternary expressions** (`condition ? intVal : IntegerVal`), and **collection operations** (`list.add(5)` on a `List<Integer>` autoboxes `5`).
+- **Performance cost**: boxing/unboxing in tight loops (e.g. summing a `List<Integer>` in a loop) creates unnecessary object churn — a classic performance pitfall. Prefer primitive-based loops or streams with `IntStream`/`mapToInt` for hot paths.
+- **Overload ambiguity**: if both `f(int)` and `f(Integer)` exist, the compiler prefers the **exact match** (`f(int)` for a primitive argument) over the boxed version, to minimize implicit conversions.
+
+
+
+### 4. NullPointerException from unboxing
+
+```java
+Integer x = null;             // valid: Integer is an object, can hold null
+int y = x;                    // compiles fine...
+                               // ...but throws NullPointerException at RUNTIME
+```
+
+Because unboxing internally calls `x.intValue()`, and calling any method on a `null` reference throws `NullPointerException`. Primitives themselves can never be `null` — there is no "null int".
+
+**Practical implication:** whenever mixing wrapper types and primitives (assignments, arithmetic, method calls), a `null` wrapper is a hidden NPE risk that the compiler will not catch. Common real-world trigger: a `Map<String, Integer>` lookup returning `null` for a missing key, then unboxing it directly:
+
+```java
+Map<String, Integer> scores = new HashMap<>();
+int score = scores.get("missing");   // NPE: get() returns null, unboxing fails
+int score = scores.getOrDefault("missing", 0);   // safe alternative
+```
+
+
+
+### 5. `==` vs `.equals()` and the Integer cache
+
+**The core rule:** `==` on reference types (including wrapper classes) compares **references** (memory addresses), never the boxed value.
+
+```java
+int x = 10, y = 10;
+System.out.println(x == y);              // true — primitives store values directly, so == compares values
+
+Integer a = 200, b = 200;
+System.out.println(a == b);              // false — two different Integer objects, different references
+System.out.println(a.equals(b));         // true — compares actual int values
+System.out.println(a.intValue() == b.intValue());   // true — compares unboxed values
+```
+
+- For **primitives**, `==` compares values directly (there's no object, no reference — the variable *is* the value).
+- For **objects** (including wrapper classes), `==` asks *"do these two references point to the same object?"* — not *"do they hold equal data?"*.
+- `.equals()` is an **instance method** that (for `Integer` and other wrappers) is overridden to compare the underlying values, not references.
+
+#### Why small values sometimes print `true` with `==` anyway: the Integer cache
+
+```java
+Integer a = 100, b = 100;
+System.out.println(a == b);              // true! — due to caching, NOT because == compares values
+
+Integer c = 200, d = 200;
+System.out.println(c == d);              // false — outside the cached range
+```
+
+**Why:** `Integer.valueOf(int)` maintains an internal cache of pre-created `Integer` objects for values **-128 to 127** (the `byte` range). When you autobox a value in this range, `valueOf` returns the **same cached object** instead of creating a new one — so two variables holding the same small value end up pointing to the **same reference**, making `==` appear to work "correctly" purely by coincidence.
+
+```java
+// Conceptual internals of Integer.valueOf
+public static Integer valueOf(int i) {
+    if (i >= -128 && i <= 127) {
+        return IntegerCache.cache[i + 128];      // return pre-existing cached object
+    }
+    return new Integer(i);                        // create a new object outside the cache range
+}
+```
+
+**Consequence:** relying on `==` for wrapper comparison is a **classic Java bug** — it silently works for small numbers (cache hits) and silently breaks for larger ones. **Always use `.equals()`** to compare wrapper objects, never `==`.
+
+#### Beyond the video
+
+- The cache also applies to `Byte`, `Short`, `Long` (-128 to 127), `Character` (0 to 127), and `Boolean` (`TRUE`/`FALSE` singletons) — not just `Integer`.
+- `Integer.valueOf(int)` is guaranteed by the JLS to return cached instances for values in `[-128, 127]`; this is **specified behaviour**, not an implementation detail you can't rely on — though the *upper* bound beyond 127 is JVM-tunable and not guaranteed portable.
+- For **user-defined classes**, always override both `equals()` and `hashCode()` together (contract: equal objects must have equal hash codes) — never override one without the other, since collections like `HashMap`/`HashSet` depend on both.
+- `Objects.equals(a, b)` (from `java.util.Objects`) is a **null-safe** alternative to `a.equals(b)`, useful when either side might be `null`.
+
+
+
+### 6. Abstract classes: interview-focused Q&A
+
+Applying first-principles reasoning (what does each keyword actually mean?) resolves nearly every abstract-class question.
+
+#### Q1: Can abstract classes have constructors?
+
+**Yes.** Although you cannot `new` an abstract class directly, its constructor **does run** — via `super(...)` — whenever a concrete subclass is instantiated.
+
+```java
+abstract class Animal {
+    private final String name;
+    Animal(String name) { this.name = name; }        // runs via subclass instantiation
+    abstract void makeSound();
+}
+class Dog extends Animal {
+    Dog(String name) { super(name); }                 // explicitly calls parent constructor
+    @Override void makeSound() { System.out.println("Barking"); }
+}
+
+Animal a = new Dog("Bruno");    // Animal's constructor runs, setting name = "Bruno"
+```
+
+#### Q2: Can an abstract class be `final`?
+
+**No.** `final` on a class means "cannot be subclassed." `abstract` means "must be subclassed to be usable" (it has undefined behaviour that only a subclass can supply). The two are **directly contradictory** — the compiler rejects `final abstract class` outright: *"illegal combination of modifiers"*.
+
+#### Q3: Can abstract classes have `static` methods/variables?
+
+**Yes.** `static` members belong to the **class itself**, not to any instance. Since the class exists (even though you can't instantiate it), its static members work normally — accessed as `ClassName.staticMember`, no object required.
+
+```java
+abstract class Animal {
+    static String kingdom = "Animalia";
+    static void printKingdom() { System.out.println(kingdom); }
+}
+Animal.printKingdom();     // fine — no instantiation needed
+```
+
+#### Q4: Can abstract classes have `private` methods?
+
+**Yes — but only if the private method is concrete (non-abstract).** A `private` method is inherently invisible outside the class, so it **cannot be `abstract`**: an abstract method must be visible to subclasses so they can override it, but subclasses can never see a `private` member to override in the first place. Combining `private abstract` is a compile error: *"abstract methods cannot have a private modifier"*.
+
+```java
+abstract class Animal {
+    private void internalHelper() { }        // OK: concrete, hidden, used only inside this class
+    // private abstract void eat();           // ERROR
+    abstract void makeSound();                // OK: visible to subclasses
+}
+```
+
+#### Q5: Can abstract classes have `final` methods?
+
+**Yes — but only if the final method is concrete (non-abstract).** `final` means "cannot be overridden"; `abstract` means "must be overridden by a subclass." Combining them is contradictory — same reasoning as `private abstract`: *"illegal combination of modifiers: abstract and final"*.
+
+```java
+abstract class Animal {
+    final void sleep() { System.out.println("Sleeping"); }   // OK: no subclass can override
+    abstract void makeSound();                                 // OK
+}
+```
+
+#### Q6: Can an abstract class have zero abstract methods?
+
+**Yes.** `abstract` on a class only means "cannot be instantiated directly" — it does not require any abstract methods. A common reason: you want to force users through a subclass (perhaps for a builder/factory pattern or to prevent accidental direct use), while still providing full, ready-to-use default implementations for every method.
+
+```java
+abstract class Animal {                  // no abstract methods at all
+    void makeSound() { System.out.println("Making sound"); }   // fully implemented
+    void sleep()     { System.out.println("Sleeping"); }
+}
+// new Animal();   // still illegal — the class itself is abstract, regardless of method content
+```
+
+#### Summary table
+
+| Question | Answer | One-line reason |
+|---|---|---|
+| Constructor? | Yes | Runs via `super()` when a subclass is instantiated |
+| `final` class? | No | `final` (no subclassing) contradicts `abstract` (must subclass) |
+| `static` members? | Yes | Belong to the class, not an instance — no instantiation needed |
+| `private` method? | Yes, if concrete | A `private abstract` method would be invisible to the subclass that must implement it |
+| `final` method? | Yes, if concrete | A `final abstract` method can't be overridden yet must be — contradiction |
+| Zero abstract methods? | Yes | `abstract` only blocks direct instantiation; it doesn't require unfinished methods |
+
+
+
+### 7. POJO classes
+
+**POJO = Plain Old Java Object.** A simple class with **no framework-imposed constraints**: it doesn't have to extend a specific base class, implement a specific interface, or carry specific annotations to "qualify" — the term was coined (Rod Johnson / Martin Fowler, 2000) specifically as a reaction against heavyweight frameworks (like early EJB) that forced classes into rigid, framework-controlled shapes.
+
+```java
+public class Sample {
+    private int x;
+    private String y;
+
+    public Sample(int x, String y) { this.x = x; this.y = y; }
+
+    public int getX()       { return x; }
+    public void setX(int x) { this.x = x; }
+    public String getY()       { return y; }
+    public void setY(String y) { this.y = y; }
+}
+```
+
+Typical contents: **private fields**, a **constructor**, and **getters/setters**. May also include a builder (Builder pattern) or light business logic — the exact boundary is **subjective**, not a strict spec.
+
+#### Why POJOs exist: modelling real-world entities
+
+```java
+public class Student {
+    private String name;
+    private int age;
+    private int rollNumber;
+    private String college;
+    // constructor, getters, setters...
+}
+```
+
+A POJO models a **domain entity** cleanly — e.g. mapping to a database table's columns (`name`, `age`, `rollNumber`, `college`), or serving as a DTO for API requests/responses. This is why POJOs are also called **model classes**. In frameworks like Spring/Hibernate, POJOs (often annotated, but the *class itself* stays framework-independent in structure) map directly to database rows or JSON payloads.
+
+#### Anemic model vs rich domain model
+
+| | Anemic model | Rich domain model |
+|---|---|---|
+| Contents | Fields + constructor + getters/setters only | Fields + constructor + getters/setters **+ business logic** |
+| Example | `Student` with just `name`, `getName()`, `setName()` | `Student` also has `markAttendance()` |
+| Both are POJOs? | Yes | Yes |
+| When to use | Pure data transfer / simple modelling | When behaviour belongs intrinsically to the entity |
+
+```java
+// Anemic model
+public class Student {
+    private String name;
+    public Student(String name) { this.name = name; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+}
+
+// Rich domain model
+public class Student {
+    private String name;
+    private boolean present;
+    public Student(String name) { this.name = name; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public void markAttendance() { this.present = true; }   // business logic lives with the data
+}
+```
+
+Both are still POJOs — the anemic/rich distinction is a **separate architectural choice** about *where* business logic should live, not a POJO-vs-not-POJO distinction.
+
+#### Beyond the video
+
+- **POJO vs JavaBean:** a JavaBean is a POJO that *additionally* follows specific conventions: a no-arg constructor, private fields with public `getX`/`setX`/`isX` (for booleans) accessors, and (traditionally) `Serializable`. Every JavaBean is a POJO; not every POJO is a JavaBean.
+- **Anemic Domain Model** is actually named and criticized as an **anti-pattern** by Martin Fowler: putting all logic in "service" classes and leaving entities as pure data bags can violate encapsulation and object-oriented principles (logic that manipulates a `Student`'s state arguably belongs on `Student`, not scattered across service classes). The rich model is generally considered better OOP design, though the anemic style remains common and pragmatic (e.g. simple CRUD apps, DTOs).
+- **DTOs (Data Transfer Objects)** are a related-but-distinct concept: POJOs specifically used to transfer data across layers/network boundaries (e.g. API request/response bodies), often intentionally kept anemic even in an otherwise rich-domain-model codebase.
+- Modern Java **`record`** types (Java 16+) provide a compact, immutable alternative for pure data carriers: `record Student(String name, int age) {}` auto-generates a constructor, accessors, `equals()`, `hashCode()`, and `toString()` — ideal for anemic-style POJOs/DTOs, though records are immutable (no setters) and cannot extend another class.
+
+
+
+### 8. Interview questions
+
+| Question | Answer |
+|---|---|
+| Why can a `.java` file have only one public class? | So the JVM/compiler has an unambiguous class to treat as the file's public entry point, avoiding ambiguity about where `main` lives. |
+| Why must the public class name match the file name? | So the JVM can locate the compiled class directly from the file name (`Demo.java` → `Demo.class`) without scanning file contents. |
+| Can a `.java` file have zero public classes? | Yes — all classes can be package-private; there's no requirement to have exactly one public class. |
+| Why is `main` both `public` and `static`? | `static` so the JVM can call it without constructing an instance; `public` so it's accessible to the JVM launcher from outside the package. |
+| What is a wrapper class? | A class (`Integer`, `Double`, etc.) that wraps a primitive value as an object, enabling it to participate in collections, generics, and object-oriented features. |
+| Why do primitives still exist if wrappers cover everything? | Legacy (attract C/C++ developers) and performance (primitives avoid object overhead and heap allocation). |
+| What is autoboxing? What is unboxing? | Autoboxing: primitive → wrapper (compiler inserts `valueOf`). Unboxing: wrapper → primitive (compiler inserts e.g. `intValue()`). |
+| Where does autoboxing/unboxing occur? | Assignments, method calls (arguments/parameters), and arithmetic operations. |
+| Why can unboxing throw NullPointerException? | Because unboxing calls a method (`intValue()`) on the wrapper object; if that object is `null`, the method call fails. |
+| Does `==` compare values or references for objects? | References (memory addresses) — never the underlying data, for any reference type including wrapper classes. |
+| Why does `Integer a = 100, b = 100; a == b` return true, but `200 == 200` return false? | The Integer cache (-128 to 127) returns the same cached object for values in that range, so `==` accidentally succeeds; outside that range, new objects are created each time. |
+| How should you correctly compare two `Integer` objects? | Use `.equals()` (or unbox both with `.intValue()` and compare with `==`), never `==` on the objects directly. |
+| Does the Integer cache apply to other wrapper types? | Yes — `Byte`, `Short`, `Long` (-128 to 127), `Character` (0-127), `Boolean` (`TRUE`/`FALSE`). |
+| Can abstract classes have constructors? | Yes, they run via `super()` during subclass instantiation. |
+| Can an abstract class be declared `final`? | No — contradictory: `final` blocks subclassing, `abstract` requires it. |
+| Can an abstract class have static methods or fields? | Yes — statics belong to the class, not an instance, so instantiation is irrelevant. |
+| Can an abstract method be `private`? | No — a private method is invisible to subclasses, but abstract methods must be overridable by subclasses. |
+| Can an abstract method be `final`? | No — `final` blocks overriding, `abstract` requires it. |
+| Can a `private` or `final` method inside an abstract class be non-abstract? | Yes, freely — the restriction is only on making that specific method itself abstract. |
+| Can an abstract class have zero abstract methods? | Yes — it only needs `abstract` to prevent direct instantiation; all its methods can be fully implemented. |
+| What is a POJO? | A plain Java class with no framework-imposed structure: no required base class, interface, or annotations — typically fields, constructor, getters/setters. |
+| Difference between anemic and rich domain models? | Anemic: pure data (fields + getters/setters). Rich: also contains business logic relevant to the entity. Both remain POJOs. |
+| POJO vs JavaBean? | A JavaBean is a POJO that follows specific conventions (no-arg constructor, `getX`/`setX` naming, serializability); not all POJOs are JavaBeans. |
+| Is the anemic domain model considered good design? | It's debated — Martin Fowler calls it an anti-pattern in OOP terms (violates encapsulation by separating data from behaviour), though it remains common for DTOs and simple CRUD use cases. |
+
+
+
+### 9. Summary / mental model
+
+```
+FILE RULE          one public top-level type per file; its name == file name
+                    (lets the compiler/JVM find the entry point unambiguously)
+
+WRAPPER CLASSES     int → Integer, double → Double, ... (object form of each primitive)
+                    exist for: collections/generics (need objects) + OOP features
+PRIMITIVES EXIST    for: legacy (C/C++ familiarity) + performance (no object overhead)
+
+AUTOBOXING          primitive → wrapper   (compiler inserts Integer.valueOf(x))
+UNBOXING            wrapper → primitive   (compiler inserts x.intValue())
+                    triggers: assignments, method calls, arithmetic
+                    danger: unboxing a null wrapper → NullPointerException
+
+==                  compares REFERENCES for objects, VALUES for primitives
+.equals()           compares VALUES (when properly overridden, e.g. by Integer)
+INTEGER CACHE       -128 to 127 are pre-created and reused → == "accidentally" works there
+                    ALWAYS use .equals() for wrapper comparisons
+
+ABSTRACT CLASS      cannot instantiate; CAN have constructors, statics, private/final
+                    CONCRETE methods; CANNOT have private/final/static ABSTRACT methods
+                    (those modifiers contradict "must be overridden")
+
+POJO                plain class, no framework constraints
+                    anemic  = data only (fields + getters/setters)
+                    rich    = data + business logic
+                    both are POJOs — the split is architectural, not definitional
+```
+
+**Remember:**
+1. The one-public-class-per-file rule exists so the compiler and JVM can unambiguously find the entry point.
+2. Wrapper classes bridge primitives into the object world; primitives remain for legacy and performance reasons.
+3. Autoboxing/unboxing is compiler-inserted convenience — but unboxing a `null` wrapper throws NPE at runtime, not compile time.
+4. `==` never compares values for objects; the Integer cache makes small-number comparisons misleadingly "work" — always use `.equals()`.
+5. Apply first-principles reasoning to any abstract-class question: does the combination of modifiers logically contradict "must be overridden by a subclass"?
+6. POJO just means framework-free; anemic vs rich domain model is a separate design choice about where business logic lives.
+
+> **Next topics** the video points to: a deeper dive into interfaces (multiple inheritance via interfaces), nested classes, and — implied by POJO discussion — frameworks like Spring/Spring Boot and their use of model classes.
 
 
 
