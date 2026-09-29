@@ -9725,6 +9725,625 @@ Collections and arrays need it too — same leak, same fix.
 5. This applies equally to custom classes, collections, and arrays.
 6. Immutability's payoff: thread safety without locks, safe hash keys, safe caching, and simpler reasoning about state.
 
+
+## 22. The Object Class: toString, equals, hashCode, getClass, clone, finalize
+
+
+### 0. Corrections to the video (read first)
+
+| Video says | Accurate version |
+|---|---|
+| "hashCode returns a hexadecimal int" | `hashCode()` returns a plain **`int`** (a 32-bit signed integer, base 10 internally). What the video sees printed after `toString()`'s `@` is the hash code **formatted as a hexadecimal string** by `toString()` itself (`Integer.toHexString(hashCode())`) — the hash code's actual type and value are decimal `int`; only its *display* in `toString()`'s default output is hex. |
+| Default `hashCode()` "generates a random number, might collide" | More precisely: the default (`Object`'s) implementation is typically derived from the object's **memory address or an internal identity token** at the time of creation (JVM-specific, not "random" in the sense of `Math.random()`) — collisions are possible but the value is deterministic per object instance for its lifetime, not re-randomized on each call. |
+| "clone() throws CloneNotSupportedException, always write `throws` and implement Cloneable" | Correct mechanically, but **Beyond the video**: `clone()` is widely considered a **flawed API** in modern Java (Effective Java, Item 13 recommends avoiding it) — favor a **copy constructor** or a **static copy factory method** instead, which don't require checked exceptions, marker interfaces, or the shallow/deep copy ambiguity `clone()` carries. |
+| "finalize() is deprecated" | Correct, and worth being precise: `finalize()` was **deprecated in Java 9** and its use is **strongly discouraged**; it was **marked for removal in Java 18 (JEP 421)** — modern code should use **try-with-resources** and `AutoCloseable`, or `java.lang.ref.Cleaner` (introduced in Java 9) as the supported replacement for cleanup logic. |
+| "Arrays have Object above them, primitives don't" | Correct — but **Beyond the video**: this is precisely because an array in Java is itself a genuine **object** (with a `.length` field and inherited `Object` methods like `.getClass()`, `.clone()`), even though its element type may be primitive (`int[]` holds primitive `int`s, but the array itself is a reference type on the heap). |
+
+
+
+### 1. Why does `Object` exist? Every class's root parent
+
+`Object` (in `java.lang.Object`) is the **implicit superclass of every class in Java** — whether you write it explicitly or not, and whether directly or through a chain of inheritance.
+
+```java
+class Student { }                        // compiler treats this as:
+class Student extends Object { }         // ...identical, automatically
+```
+
+Since Java forbids **multiple inheritance of classes**, even a class with an explicit superclass eventually traces back to `Object` at the top of its hierarchy:
+
+```java
+class Human { }                          // implicitly extends Object
+class Student extends Human { }          // Student → Human → Object
+```
+
+Whatever the chain, there's always exactly one root: `Object`.
+
+#### Why Java needs a single root class
+
+**1. Common behaviour for every class.** Certain capabilities (converting to a readable string, comparing for equality, getting a unique-ish identity number, finding out the runtime type) are useful for *every* object, no matter what it represents. Placing these as methods on `Object` means **every class in Java automatically inherits them**, with no extra work.
+
+```java
+class Student { }
+Student s1 = new Student();
+s1.toString();     // works immediately — inherited from Object, no need to write it yourself
+```
+
+**2. A universal reference type, enabling polymorphism.** Because `Object` sits at the root, a variable of type `Object` can point to **any** object of any class:
+
+```java
+Object obj = new Student();       // legal: Object is the parent of every class, directly or indirectly
+```
+
+This is the same upcasting principle from inheritance (a parent reference can point to a child object) taken to its logical extreme — one type that can hold literally anything. On such a reference, only the methods declared on `Object` itself are directly callable (without a cast) — but that's still guaranteed to include `toString()`, `equals()`, `hashCode()`, and `getClass()` for absolutely anything.
+
+
+
+### 2. The methods on `Object`
+
+| Category | Methods |
+|---|---|
+| **Core methods** | `toString()`, `equals(Object)`, `hashCode()`, `getClass()` |
+| **Cloning** | `clone()` |
+| **Garbage collection (deprecated)** | `finalize()` |
+| **Threading** (covered separately, under multithreading) | `wait()`, `notify()`, `notifyAll()` |
+
+
+
+### 3. `toString()`
+
+```java
+public String toString() { ... }     // default implementation, defined in Object
+```
+
+**Purpose:** returns a **string representation of any object**.
+
+#### Default behaviour
+
+```java
+class Student {
+    String name;
+    int age;
+}
+
+Student s1 = new Student();
+System.out.println(s1.toString());   // Student@1b6d3586   (getClass().getName() + "@" + Integer.toHexString(hashCode()))
+```
+
+The default format is: **fully qualified class name** + `@` + the object's **hash code, formatted as hexadecimal**. This is consistent for the same object across repeated calls (its identity doesn't change), but carries no useful information about the object's actual state.
+
+#### Overriding it
+
+```java
+class Student {
+    String name;
+    int age;
+
+    @Override
+    public String toString() {
+        return name + ", " + age;
+    }
+}
+
+Student s1 = new Student();
+s1.name = "Aditya"; s1.age = 28;
+System.out.println(s1.toString());   // Aditya, 28
+```
+
+#### Beyond the video: `println` calls `toString()` implicitly
+
+```java
+System.out.println(s1);              // identical output to s1.toString() — no need to write .toString() explicitly
+```
+
+`println(Object)` internally calls `String.valueOf(obj)`, which calls `obj.toString()` (with a `null` check). This is why printing any object directly, without explicitly calling `.toString()`, already uses your override.
+
+#### Beyond the video: use in string concatenation and debugging
+
+```java
+String message = "Student: " + s1;   // implicitly calls s1.toString()
+```
+
+Overriding `toString()` is standard practice for almost every domain class — it makes debugging, logging, and console output vastly more useful than the default hex-address format. IDEs, debuggers, and logging frameworks all rely on it.
+
+
+
+### 4. `equals(Object)`
+
+```java
+public boolean equals(Object obj) { ... }
+```
+
+**Purpose:** compares **two objects** and returns whether they should be considered equal.
+
+#### Why the parameter type is `Object`, not the calling class's own type
+
+`equals()` is declared inside `Object`, which has no idea what subclasses will exist. Since `Object` is the universal parent, accepting an `Object` parameter guarantees `equals()` can be called with **any** object as the argument, from any class — total generality, at the cost of needing a cast inside the method body when overriding it (see below).
+
+#### Default behaviour: reference comparison
+
+```java
+class Student { String name; int age; }
+
+Student s1 = new Student(); s1.name = "Aditya"; s1.age = 28;
+Student s2 = new Student(); s2.name = "Aditya"; s2.age = 28;
+
+System.out.println(s1.equals(s2));   // false — same field values, but DIFFERENT objects (different references)
+```
+
+The default implementation is exactly:
+```java
+public boolean equals(Object obj) {
+    return (this == obj);       // reference comparison, identical to the == operator
+}
+```
+
+So, before overriding, `.equals()` and `==` behave identically for any custom object — both simply check whether two references point to the exact same object in memory.
+
+#### Overriding it (value-based equality)
+
+```java
+@Override
+public boolean equals(Object obj) {
+    if (obj == null)                          return false;                 // step 1: null check
+    if (this == obj)                          return true;                  // step 2: same-reference shortcut
+    if (this.getClass() != obj.getClass())    return false;                 // step 3: same runtime type check
+    Student s = (Student) obj;                                                // step 4: safe cast
+    return this.name.equals(s.name) && this.age == s.age;                    // step 5: field-by-field comparison
+}
+```
+
+Each guard matters:
+
+| Guard | Protects against |
+|---|---|
+| `obj == null` check | `NullPointerException` when later dereferencing `obj`'s fields |
+| `this == obj` shortcut | Unnecessary work when comparing an object to itself |
+| `getClass()` comparison | `ClassCastException` from casting an incompatible type (e.g., passing an `Integer` where a `Student` was expected) |
+| Cast, then compare fields | The actual value-based equality logic |
+
+```java
+Student s1 = new Student(); s1.name = "Aditya"; s1.age = 28;
+Student s2 = new Student(); s2.name = "Aditya"; s2.age = 28;
+System.out.println(s1.equals(s2));    // true — now compares field values, not references
+```
+
+#### Beyond the video: `getClass()` vs `instanceof` in `equals()`
+
+The video uses `getClass()`, which requires the **exact same runtime class** on both sides — a subclass instance is never equal to a parent instance, even if all inherited fields match. Using `instanceof` instead is more permissive (it also accepts subclasses) but can break the **symmetry** requirement of the `equals()` contract (`a.equals(b)` must equal `b.equals(a)`) in inheritance hierarchies. The `getClass()` approach, as the video demonstrates, is the safer default for most cases; the `instanceof` approach is preferred specifically when subclasses are meant to compare equal to their parent type (with careful symmetry handling).
+
+#### Beyond the video: `Objects.equals()` for null-safety
+
+```java
+import java.util.Objects;
+
+@Override
+public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (!(obj instanceof Student s)) return false;   // pattern-matching instanceof (Java 16+)
+    return Objects.equals(name, s.name) && age == s.age;
+}
+```
+
+`Objects.equals(a, b)` handles `null` safely on either side (`a == null && b == null` → `true`; one `null` → `false`), avoiding a manual null check on each field.
+
+
+
+### 5. `hashCode()`
+
+```java
+public int hashCode() { ... }
+```
+
+**Purpose:** returns an **integer representation of an object**, intended to act as a fast, approximate identity/bucket value — heavily used internally by hash-based collections (`HashMap`, `HashSet`, `Hashtable`).
+
+#### Default behaviour
+
+The default is typically derived from the object's internal identity (JVM-specific — commonly related to its memory address at creation), and stays constant across calls for a given object instance, but the video's textual display shows it in hexadecimal (via `toString()`'s formatting) even though the returned value itself is a decimal `int`.
+
+
+
+### 6. The equals-hashCode contract (critical rule)
+
+> **If two objects are equal (via `.equals()`), their hash codes MUST be equal.**
+> **The reverse is NOT guaranteed** — two unequal objects *may* coincidentally share the same hash code.
+
+```java
+Student s1 = new Student(); s1.name = "Aditya"; s1.age = 28;
+Student s2 = new Student(); s2.name = "Aditya"; s2.age = 28;
+
+s1.equals(s2);          // true (after overriding equals())
+s1.hashCode() == s2.hashCode();   // MUST also be true — otherwise the contract is broken
+```
+
+```java
+Student s3 = new Student(); s3.name = "Rohit"; s3.age = 28;
+// s1.equals(s3) is false — different names
+// but s1.hashCode() == s3.hashCode() COULD coincidentally be true — that's allowed (not required, not forbidden)
+```
+
+#### Why the contract exists
+
+If `equals()` is overridden but `hashCode()` is **not**, the contract silently breaks: two objects that are `.equals()`-equal can end up with **different** hash codes (since the unoverridden default is still reference-based).
+
+**Consequence:** hash-based collections (`HashMap`, `HashSet`) rely on this contract internally to decide which "bucket" an object belongs in. If two equal objects hash differently, the collection can't reliably find one using the other as a lookup key — effectively breaking membership checks, duplicate detection, and retrieval. **Always override `equals()` and `hashCode()` together, never just one.**
+
+#### Overriding `hashCode()` — manual approach (educational)
+
+```java
+@Override
+public int hashCode() {
+    int result = 17;                          // start with a non-zero prime
+    result = result * 31 + age;               // multiply by another prime, factor in each field
+    result = result * 31 + (name == null ? 0 : name.hashCode());
+    return result;
+}
+```
+
+- Starting from a nonzero prime and repeatedly multiplying by another prime while folding in each field's own hash is the classic algorithm (this is essentially what IDEs and Lombok generate).
+- Primes reduce the likelihood of collisions when combining multiple field values.
+- `name.hashCode()` reuses `String`'s own overridden `hashCode()` rather than reinventing character-based hashing.
+- **Always null-check** before calling `.hashCode()` on a field, or you'll get a `NullPointerException`.
+
+#### The modern, standard approach
+
+```java
+import java.util.Objects;
+
+@Override
+public int hashCode() {
+    return Objects.hash(name, age);      // handles nulls internally, combines fields correctly
+}
+```
+
+`Objects.hash(...)` (from `java.util.Objects`) is the idiomatic modern replacement for manually writing the prime-multiplication logic — it's null-safe and combines any number of fields correctly.
+
+
+
+### 7. `getClass()`
+
+```java
+public final Class<?> getClass() { ... }
+```
+
+**Purpose:** returns the **runtime class** of an object — which concrete class was actually instantiated, regardless of the reference type used to refer to it.
+
+```java
+Student s1 = new Student();
+System.out.println(s1.getClass().getName());   // "Student"
+```
+
+- `getClass()` returns an object of type **`Class<?>`** — yes, Java has a class literally named `Class`, used for **reflection** (a more advanced topic, covered separately).
+- `getClass()` is declared **`final`** — it **cannot be overridden**, because it must always report the true runtime type, which no subclass should be allowed to fake.
+
+```java
+class Animal { }
+class Dog extends Animal { }
+
+Animal a = new Animal();
+Animal d = new Dog();          // reference type Animal, but actual object is a Dog
+
+System.out.println(a.getClass().getName());   // Animal
+System.out.println(d.getClass().getName());   // Dog — reports the ACTUAL object's class, not the reference type
+```
+
+
+
+### 8. `instanceof`
+
+```java
+d instanceof Animal    // true or false
+```
+
+**Purpose:** checks whether an object is an instance of a given class **or any of its subclasses**.
+
+```java
+Animal a = new Animal();
+Animal d = new Dog();
+
+System.out.println(a instanceof Animal);   // true
+System.out.println(d instanceof Animal);   // true  — Dog IS-A Animal, so this holds
+System.out.println(a instanceof Dog);      // false — Animal is NOT a Dog (no such relationship exists)
+```
+
+#### `getClass()` vs `instanceof`
+
+| | `getClass()` | `instanceof` |
+|---|---|---|
+| Tells you | The exact runtime class | Whether the object is that type **or a subtype** |
+| Comparison style | `a.getClass() == b.getClass()` — exact match only | `a instanceof SomeType` — matches the type or any subclass |
+| Typical use | Strict equality checks (as in `equals()`) | General type checks, safe casting guards |
+
+```java
+if (obj instanceof Student s) {    // pattern-matching instanceof (Java 16+): checks type AND casts in one step
+    System.out.println(s.name);     // s is already safely cast here
+}
+```
+
+
+
+### 9. `clone()`
+
+```java
+protected Object clone() throws CloneNotSupportedException { ... }
+```
+
+**Purpose:** creates a **copy of an object**.
+
+#### Key facts about its signature
+
+| Trait | Detail |
+|---|---|
+| Access modifier | `protected` (not `public`) — can only be called from within the class itself, a subclass, or the same package by default |
+| Return type | `Object` (requires a cast back to the actual type after calling) |
+| Throws | Checked exception `CloneNotSupportedException` |
+
+#### Why you must implement `Cloneable` to use it
+
+```java
+class Student implements Cloneable {         // required, or clone() throws at runtime
+    @Override
+    protected Object clone() throws CloneNotSupportedException {
+        return super.clone();                 // delegates to Object's default clone logic
+    }
+}
+
+Student s1 = new Student();
+Student s3 = (Student) s1.clone();            // cast required, since clone() returns Object
+```
+
+Without `implements Cloneable`, calling `.clone()` (even after overriding it) throws `CloneNotSupportedException` at runtime. The rule: **"not every object should be cloneable"** — some objects (database connections, thread handles, anything wrapping an external resource) would produce broken or undesired behaviour if blindly duplicated, so Java requires an explicit opt-in.
+
+#### `Cloneable`: a marker interface
+
+```java
+public interface Cloneable { }     // completely empty — no methods at all
+```
+
+`Cloneable` has **zero methods**. Implementing an empty interface doesn't require overriding anything (there's nothing to override) — it exists purely as a **marker**: a flag that says "this class explicitly opts in to cloning." Internally, `Object.clone()`'s default logic checks whether the calling object's class implements `Cloneable`; if not, it throws `CloneNotSupportedException`.
+
+```java
+// Conceptual internal logic of Object.clone()
+if (this instanceof Cloneable) {
+    // proceed with copying
+} else {
+    throw new CloneNotSupportedException();
+}
+```
+
+Other examples of Java's marker interfaces: `Serializable`, `Remote`.
+
+#### The default clone is a shallow copy
+
+```java
+class College { String name; }
+class Student implements Cloneable {
+    String name;
+    College college;
+    @Override protected Object clone() throws CloneNotSupportedException { return super.clone(); }
+}
+```
+
+`super.clone()`'s default behaviour copies each field **by value for primitives, and by reference for objects** — so a cloned `Student`'s `college` field points to the **same** `College` object as the original. This is a shallow copy, exactly as covered in the immutability notes. To get a deep copy, you must override `clone()` to manually clone nested mutable fields too:
+
+```java
+@Override
+protected Object clone() throws CloneNotSupportedException {
+    Student cloned = (Student) super.clone();
+    cloned.college = new College(this.college.name);   // manually deep-copy the nested object
+    return cloned;
+}
+```
+
+#### Beyond the video: why `clone()` is considered a flawed design (Effective Java, Item 13)
+
+Modern guidance generally **avoids `clone()` entirely**, preferring:
+
+```java
+// Copy constructor
+Student(Student other) {
+    this.name = other.name;
+    this.college = new College(other.college.name);   // deep-copy explicitly, clearly, no exception needed
+}
+
+// or a static copy factory
+static Student copyOf(Student other) {
+    return new Student(other.name, new College(other.college.name));
+}
+```
+
+Reasons `clone()` is disfavored: it forces a checked exception even when cloning can never actually fail for a well-formed class; the shallow-vs-deep-copy behaviour is easy to get wrong silently; the cast from `Object` is clunky; and it interacts awkwardly with `final` fields (which `clone()`'s field-by-field copy mechanism bypasses constructors for). Copy constructors and static factories avoid every one of these problems with plain, explicit code.
+
+
+
+### 10. `finalize()` — deprecated
+
+```java
+protected void finalize() throws Throwable { ... }
+```
+
+**Historical purpose:** called by the garbage collector before reclaiming an object's memory, intended as a last chance to release resources.
+
+**Why it's deprecated:**
+- **Unpredictable** — there's no guarantee *when* (or even *if*) it will run; it depends entirely on the garbage collector's decisions.
+- **Unsafe** — an object can be "resurrected" (a reference to `this` escaping during `finalize()`) in ways that create fragile edge cases.
+- **Unreliable** — calling `System.gc()` yourself doesn't guarantee `finalize()` runs either.
+
+**Modern replacement:** `finalize()` was **deprecated in Java 9** and marked for removal in later versions. Use:
+- **`try-with-resources`** + implementing `AutoCloseable`, for deterministic, immediate cleanup, or
+- **`java.lang.ref.Cleaner`** (introduced in Java 9), for cleanup tied to garbage collection but implemented far more safely than `finalize()`.
+
+```java
+class Resource implements AutoCloseable {
+    @Override public void close() { System.out.println("Resource released"); }
+}
+
+try (Resource r = new Resource()) {
+    // use r
+}   // close() is called automatically and deterministically here, unlike finalize()
+```
+
+
+
+### 11. Arrays and `Object`
+
+Arrays in Java are **non-primitive** (reference) types, even when they hold primitive elements — created with `new`, allocated on the heap, and referenced by a variable holding an address:
+
+```java
+int[] arr = new int[5];      // arr: reference variable (stack); the 5-element array itself: heap object
+```
+
+Because arrays are objects, `Object`'s hierarchy sits above them too — arrays inherit `Object`'s methods (`getClass()`, `clone()`, `equals()`, `hashCode()`, `toString()`), though several (like `equals()`) retain their default reference-comparison behaviour rather than anything array-content-aware.
+
+```java
+int[] arr = new int[5];
+System.out.println(arr.getClass().getName());   // [I  (JVM's internal encoding for "array of int")
+```
+
+#### Beyond the video: `array.clone()` works without `Cloneable`
+
+Unusually, **arrays support `.clone()` without needing to implement `Cloneable` explicitly** — the JVM treats array cloning as a special built-in case. `int[] copy = arr.clone();` works directly and performs a shallow copy (fine for primitive arrays, since there's nothing to share by reference; for object arrays, it copies references, not the referenced objects).
+
+
+
+### 12. Primitives do NOT sit under `Object`
+
+```java
+int a = 5, b = 5;
+a == b;              // comparison — fine
+// a.equals(b)       // ERROR: int is a primitive, has no methods at all
+```
+
+Primitives (`int`, `char`, `float`, `boolean`, etc.) are **not stored as objects** — no memory header, no method table, nothing `Object`-related sits above them. That's precisely why you can't call `.toString()`, `.equals()`, or any other method directly on a primitive value.
+
+Their **wrapper classes** (`Integer`, `Character`, `Float`, `Boolean`, etc.), being ordinary non-primitive classes, **do** sit under `Object` like everything else — which is exactly why `Integer.equals()`, `Integer.hashCode()`, and `Integer.toString()` all exist and work as expected.
+
+
+
+### 13. Full example: everything together
+
+```java
+import java.util.Objects;
+
+class College {
+    String name;
+    College(String name) { this.name = name; }
+}
+
+class Student implements Cloneable {
+    private String name;
+    private int age;
+    private College college;
+
+    Student(String name, int age, College college) {
+        this.name = name; this.age = age; this.college = college;
+    }
+
+    @Override
+    public String toString() {
+        return name + ", " + age + ", " + college.name;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Student s = (Student) obj;
+        return age == s.age && Objects.equals(name, s.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, age);
+    }
+
+    @Override
+    protected Object clone() throws CloneNotSupportedException {
+        Student cloned = (Student) super.clone();
+        cloned.college = new College(this.college.name);   // deep-copy the nested mutable field
+        return cloned;
+    }
+}
+
+public class Demo {
+    public static void main(String[] args) throws CloneNotSupportedException {
+        College c = new College("IIT Guwahati");
+        Student s1 = new Student("Aditya", 28, c);
+        Student s2 = new Student("Aditya", 28, c);
+
+        System.out.println(s1);                          // Aditya, 28, IIT Guwahati  (toString via println)
+        System.out.println(s1.equals(s2));                // true (value-based)
+        System.out.println(s1.hashCode() == s2.hashCode()); // true (contract respected)
+        System.out.println(s1.getClass().getName());       // Student
+        System.out.println(s1 instanceof Student);          // true
+
+        Student s3 = (Student) s1.clone();
+        System.out.println(s3);                            // Aditya, 28, IIT Guwahati
+        s3.college.name = "IIT Bombay";
+        System.out.println(s1.college.name);                // still "IIT Guwahati" — deep-copied, unaffected
+    }
+}
+```
+
+
+
+### 14. Interview questions
+
+| Question | Answer |
+|---|---|
+| What is the root class of every class in Java? | `java.lang.Object`, either directly or through the inheritance chain. |
+| Why does Java have a single root class? | To provide common behaviour (`toString`, `equals`, `hashCode`, `getClass`) to every class automatically, and to enable an `Object` reference to point to any object (a foundation for generic/polymorphic code). |
+| What does `toString()` return by default? | The class's fully qualified name, `@`, and the object's hash code in hexadecimal. |
+| Why is `println(obj)` equivalent to `println(obj.toString())`? | `println(Object)` calls `String.valueOf(obj)`, which internally calls `obj.toString()`. |
+| What does `equals()` compare by default? | References — identical to `==` — until overridden. |
+| Why does `equals(Object obj)` take an `Object` parameter instead of the class's own type? | Because it's declared in `Object`, which has no knowledge of future subclasses; accepting `Object` allows the method to be called with any type. |
+| What is the equals-hashCode contract? | If two objects are equal via `.equals()`, they must return the same `hashCode()`. The converse is not required — unequal objects may still share a hash code. |
+| What happens if you override `equals()` but not `hashCode()`? | The contract breaks: equal objects can end up with different hash codes, causing hash-based collections (`HashMap`, `HashSet`) to behave incorrectly. |
+| What does `getClass()` return, and can it be overridden? | The exact runtime class as a `Class<?>` object; it's `final` and cannot be overridden. |
+| Difference between `getClass()` equality and `instanceof`? | `getClass()` matches only the exact same class; `instanceof` also matches subclasses. |
+| What does `clone()` do by default? | A shallow copy — primitive fields copied by value, object fields copied by reference (shared, not duplicated). |
+| Why must a class implement `Cloneable` to use `clone()`? | Not every object should be cloneable (e.g., resources, connections); `Cloneable` is an explicit opt-in marker, and its absence causes `clone()` to throw `CloneNotSupportedException`. |
+| What is a marker interface? | An interface with no methods, used only to "tag" a class and enable some behaviour (e.g., `Cloneable`, `Serializable`). |
+| Why is `clone()` discouraged in modern Java? | It forces a checked exception, defaults to shallow copying (easy to get wrong), requires an awkward cast, and interacts poorly with `final` fields. Prefer a copy constructor or static factory method. |
+| Why is `finalize()` deprecated? | It's unpredictable (no guarantee it runs, or when), unsafe (objects can "resurrect" themselves), and unreliable. Deprecated in Java 9; replaced by `try-with-resources`/`AutoCloseable` or `java.lang.ref.Cleaner`. |
+| Do arrays sit under `Object`? | Yes — arrays are non-primitive reference types, so they inherit `Object`'s methods, and can even use `.clone()` without implementing `Cloneable` (a special JVM case). |
+| Do primitives sit under `Object`? | No — primitives have no methods at all. Their wrapper classes (`Integer`, `Character`, etc.) do sit under `Object`. |
+
+
+
+### 15. Summary / mental model
+
+```
+Object                                     ← root of every class, directly or indirectly
+ ├── toString()   → string representation (default: ClassName@hexHashCode)
+ ├── equals(Object) → equality check (default: reference comparison, same as ==)
+ ├── hashCode()    → integer identity value, used by hash-based collections
+ ├── getClass()    → FINAL; exact runtime type, as a Class<?> object
+ ├── clone()       → PROTECTED; shallow copy by default; needs `implements Cloneable`
+ ├── finalize()    → DEPRECATED; use try-with-resources/AutoCloseable or Cleaner instead
+ └── wait()/notify()/notifyAll() → threading (covered separately)
+
+instanceof          → checks TYPE OR SUBTYPE   (separate from Object's own methods, but related)
+
+EQUALS-HASHCODE CONTRACT:
+  equals() true  ⟹  hashCode() must match
+  hashCode() match  ⇏  equals() need NOT be true (collisions allowed)
+  → Always override both together, never just one.
+
+Arrays  → non-primitive → sit under Object (inherit its methods; .clone() works without Cloneable)
+Primitives → NOT objects → nothing from Object applies; their WRAPPER CLASSES do sit under Object
+```
+
+**Remember:**
+1. Every class in Java inherits from `Object`, giving it `toString()`, `equals()`, `hashCode()`, and `getClass()` for free.
+2. Override `toString()` for readable output; override `equals()`/`hashCode()` together, never separately.
+3. `getClass()` is exact-type and cannot be overridden; `instanceof` also matches subclasses.
+4. `clone()` needs `Cloneable` (a marker interface) and defaults to a shallow copy — but modern Java favors copy constructors/static factories instead.
+5. `finalize()` is deprecated and unreliable — use `try-with-resources`/`AutoCloseable` or `Cleaner`.
+6. Arrays are objects (they sit under `Object`); primitives are not.
+
+
+
 ### Classes & Objects
 
 #### Class vs. Object
