@@ -1,22 +1,32 @@
 public class DEMO5 {
-      public static void main(String[] args){
+    public static void main(String[] args) {
 
-        Car c = new Thar();
-        c.drive();
+        UpiPayment u1 = new UpiPayment();
+        u1.processPayment();
+
+        CardPayment c1 = new CardPayment();
+        c1.processPayment();
         
-      }
+    }
+}
 
+interface PaymentMethod{
+    void processPayment();
     
-    }
+}
 
-    interface  Car {
-        void drive();
+class UpiPayment implements PaymentMethod{
+    
+    @Override 
+    public void processPayment(){
+        System.out.println("This is UpiPayment class.");
     }
+}
 
-    class Thar implements Car{
+class CardPayment implements PaymentMethod{
 
-        @Override 
-        public void drive(){
-            System.out.println("Thar is driving");
-        }
+    @Override 
+    public void processPayment(){
+        System.out.println("This is CardPayment class.");
     }
+}
