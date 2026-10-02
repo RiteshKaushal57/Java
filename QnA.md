@@ -73,3 +73,893 @@ Casting is converting a value or reference from one compatible type to another. 
 
 `ClassCastException` is an unchecked runtime exception that occurs when an object is explicitly cast to an incompatible type. It's commonly seen with downcasting in inheritance. For example, if an Animal reference actually points to a Cat object and we try to cast it to Dog, the code can compile because Dog and Animal are related, but the JVM detects the actual object type at runtime and throws ClassCastException. We can avoid unsafe downcasts by checking with instanceof first.
 
+#### Are all String’s immutable?  
+Yes. String objects in Java are immutable, meaning once a String object is created, its character contents cannot be changed. Operations such as concatenation or replace() create a new String instead of modifying the existing object. This immutability enables safe String Pool sharing, makes Strings suitable as keys in hash-based collections, provides useful thread-safety characteristics, and is important for security-sensitive values. If we need to modify character data repeatedly, we'd generally use StringBuilder or StringBuffer instead.
+
+#### Where are String values stored in memory?
+String objects are stored on the heap. String literals are maintained in the String Pool, which is also part of the heap in modern Java. For example, with String s = "Java", the reference s refers to the pooled String object. If we use new String("Java"), a separate String object is explicitly created on the heap, although the literal "Java" itself can still be present in the String Pool. The String Pool allows Java to reuse identical immutable String literals.
+
+#### What's the difference between String, StringBuffer and StringBuilder?
+`String` is immutable, while `StringBuffer` and `StringBuilder` are mutable. If I repeatedly modify a String, new String objects can be created, so for frequent modifications I'd generally use a mutable buffer. StringBuilder is not synchronized and is usually preferred for single-threaded or non-shared use because it avoids synchronization overhead. StringBuffer provides synchronized methods, so it can be useful when synchronized access to the same mutable buffer is required across threads. In practice, I'd normally use String for immutable text and StringBuilder for constructing or modifying strings efficiently.
+
+
+
+### OOPS
+
+#### What is a class?
+A class is a user-defined type that acts as a blueprint for creating objects. It defines the data an object can hold through fields and the behavior it can perform through methods. A class can also contain constructors, static members, nested types, and other members.
+
+When we create an object using new, Java creates an instance of that class, and the instance gets its own state for the class's instance fields. 
+
+#### What is an object?
+An object is a runtime instance of a class. It represents a concrete entity that has state and behavior.
+
+The class defines what data and operations an object can have, while the object actually holds the data and can perform those operations.
+
+#### What is state of an object?
+The state of an object is the current data or values held by its instance variables at a particular point in time.
+
+#### What is behavior of an object?
+The behavior of an object refers to the actions or operations that the object can perform. In Java, an object's behavior is primarily defined by the methods of its class.
+
+#### What is the super class of every class in Java?
+In Java, java.lang.Object is the root superclass of the class hierarchy. Every Java class directly or indirectly extends Object unless it's Object itself. If we don't explicitly specify a superclass, the compiler implicitly makes the class extend Object. Because of this, every class inherits common methods such as equals(), hashCode(), toString(), and getClass().
+
+For example, if Dog extends Animal, and Animal doesn't explicitly extend anything, the hierarchy is Dog → Animal → Object.
+
+One important distinction is that interfaces don't extend Object; Object is the root of the class hierarchy, not the interface hierarchy.
+
+#### Explain about toString method ?
+toString() is a public method defined in java.lang.Object that returns a string representation of an object. Every Java class inherits it, and in practice we often override it to provide a meaningful representation of the object's state.
+
+The default implementation from Object returns a string based on the object's runtime class name and its hash code, which is usually not very useful for debugging. By overriding toString(), we can make logging, debugging, and console output much more readable.
+
+Also, when we pass an object to System.out.println() or concatenate it with a String, Java can invoke toString() to obtain its textual representation.
+
+```
+class Employee {
+    int id;
+    String name;
+
+    @Override
+    public String toString() {
+        return "Employee{id=" + id + ", name='" + name + "'}";
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+
+        Employee e = new Employee();
+        e.id = 101;
+        e.name = "Ritesh";
+
+        System.out.println(e);
+
+        String result = "Employee details: " + e;
+        System.out.println(result);
+    }
+}
+```
+
+#### What is the use of equals method in Java?
+equals() is used to compare two objects for logical equality rather than checking whether they are the exact same object in memory. It's defined in Object, and classes can override it to specify which fields determine equality.
+
+For example, two Employee objects may be considered equal if they have the same employee ID, even though they are separate objects. This is different from ==, which for object references checks whether both references point to the same object.
+
+When we override equals(), we generally also need to override hashCode() so that the equality and hashing contract remains consistent, especially when objects are used in collections such as HashMap and HashSet
+
+```
+equals() → Used to check logical equality between two objects.
+Object.equals() → By default, equality is identity-based.
+== → For objects, checks whether two references point to the same object.
+equals() → Can be overridden to define equality based on object data/state.
+String.equals() → Compares string contents, not references.
+equals() + hashCode() → Must be consistent; equal objects must have the same hashCode().
+HashSet/HashMap → Depend on both hashCode() and equals() for correct behavior.
+equals(Object obj) → Must use Object parameter to properly override the method.
+Mutable equality fields → Changing them while an object is in HashSet/HashMap can cause lookup problems.
+```
+
+#### What are the important things to consider when implementing equals method?
+When implementing equals(), I first make sure the method follows the standard equality contract. I usually check reference equality first, handle null, verify that the other object is of a compatible type, and then compare only the fields that actually define logical equality for that class.
+
+The important part is that equals() must be reflexive, symmetric, transitive, consistent, and return false when compared with null. I also always consider hashCode() because if two objects are equal, they must return the same hash code.
+
+Another practical consideration is avoiding mutable fields in equality when possible, especially for objects that will be used as HashMap keys or stored in HashSet, because changing an equality-defining field after insertion can break lookup behavior.
+```
+class Employee {
+    private final int id;
+    private String name;
+
+    public Employee(int id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (!(obj instanceof Employee other)) {
+            return false;
+        }
+
+        return this.id == other.id;
+    }
+
+    @Override
+    public int hashCode() {
+        return Integer.hashCode(id);
+    }
+}
+```
+Here, we've decided that id defines employee equality.
+
+So:
+```
+Employee e1 = new Employee(101, "Ritesh");
+Employee e2 = new Employee(101, "Rahul");
+
+System.out.println(e1.equals(e2)); // true
+```
+
+Even though the names are different, they are considered equal because the application has defined id as the equality field.
+
+- Define exactly what makes two objects logically equal, implement that consistently in equals(), and use the same equality-defining data in hashCode().
+
+#### What is the Hashcode method used for in Java?
+hashCode() is a method from the Object class that returns an integer value for an object. Its main purpose is to help hash-based collections such as HashMap and HashSet locate objects efficiently. The hash code is used to narrow down where an object should be stored or searched, and then equals() is used to check logical equality when necessary.
+
+A hash code is not unique, so two different objects can have the same hash code. Also, if two objects are equal according to equals(), they must have the same hash code. That's why equals() and hashCode() are normally implemented together.
+
+####  Explain inheritance with examples .
+Inheritance is an object-oriented programming mechanism in which a child class acquires accessible fields and methods from a parent class. In Java, class inheritance is implemented using the extends keyword.
+
+For example, if Dog extends Animal, then Dog inherits the accessible members of Animal and can also define its own behavior. This allows code reuse and represents an "is-a" relationship—for example, a Dog is an Animal.
+
+Java supports single, multilevel, and hierarchical inheritance through classes, but it does not support multiple inheritance of classes. Multiple inheritance of type can be achieved using interfaces.
+
+The child class can also override inherited methods to provide more specific behavior.
+
+####  What is method overloading?
+Method overloading is a form of compile-time polymorphism where a class has multiple methods with the same name but different parameter lists. The methods can differ in the number, type, or order of parameters. When a method is called, the compiler determines which overloaded version to invoke based on the arguments passed.
+
+For example, a Calculator class can have multiple add() methods accepting two integers, three integers, or two doubles.
+
+One important point is that changing only the return type does not constitute method overloading.
+
+```
+class Printer {
+
+    void print(String text) {
+        System.out.println(text);
+    }
+
+    void print(int number) {
+        System.out.println(number);
+    }
+
+    void print(String text, int number) {
+        System.out.println(text + number);
+    }
+}
+```
+
+#### What is method overriding?
+Method overriding occurs when a subclass provides a specific implementation of a method that is already defined in its superclass. The overriding method must have a compatible signature, and the return type must be the same or a covariant subtype. It is mainly used to provide specialized behavior in the child class.
+
+Method overriding is also the basis of runtime polymorphism. For example, if Dog overrides sound() from Animal, a reference of type Animal can point to a Dog object, and calling sound() will execute the Dog implementation at runtime.
+
+We normally use the @Override annotation because it allows the compiler to verify that we are actually overriding a superclass method.
+```
+class Animal {
+
+    void sound() {
+        System.out.println("Animal sound");
+    }
+}
+
+class Dog extends Animal {
+
+    @Override
+    void sound() {
+        System.out.println("Dog barks");
+    }
+}
+
+class Cat extends Animal {
+
+    @Override
+    void sound() {
+        System.out.println("Cat meows");
+    }
+}
+```
+```
+Overriding → Child class provides its own implementation of an inherited parent method.
+Signature → Overriding method must have the same parameter list.
+Return type → Same or covariant subtype.
+Runtime polymorphism → Parent reference can call child implementation.
+@Override → Recommended; compiler verifies the override.
+Access modifier → Cannot reduce visibility.
+private → Cannot be overridden.
+static → Hidden, not overridden.
+final → Cannot be overridden.
+Constructor → Cannot be overridden.
+Overloading → Same name + different parameters; compile-time.
+Overriding → Same method + inheritance; runtime.
+```
+####  Can super class reference variable can hold an object of sub class?
+Yes, a superclass reference variable can hold a subclass object. This is called upcasting and is a key part of runtime polymorphism. For example, Animal animal = new Dog(); is valid because a Dog is an Animal. The reference type determines which members are accessible at compile time, while the actual object type determines which overridden method implementation runs at runtime.
+
+So in Animal animal = new Dog(), I can access methods defined in Animal, but if a method is overridden by Dog, the Dog implementation is selected at runtime. However, Dog-specific methods that are not present in Animal cannot be accessed directly through the Animal reference.
+```
+class Animal {
+
+    void sound() {
+        System.out.println("Animal sound");
+    }
+}
+
+class Dog extends Animal {
+
+    @Override
+    void sound() {
+        System.out.println("Dog barks");
+    }
+
+    void fetch() {
+        System.out.println("Dog fetches the ball");
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+
+        Animal animal = new Dog();
+
+        animal.sound();   // ✅ Dog barks
+        // animal.fetch();   // ❌ Not accessible
+    }
+}
+```
+- The reference type controls what you are allowed to call; the actual object type controls overridden method behavior.
+```
+Superclass reference → Can hold subclass object.
+Animal a = new Dog() → Valid upcasting.
+Reference type → Determines accessible members at compile time.
+Actual object type → Determines overridden method implementation at runtime.
+Dog-specific method → Cannot be called through Animal reference unless cast.
+Upcasting → Usually implicit and safe.
+Runtime polymorphism → Same parent reference can refer to different child objects.
+```
+#### Is multiple inheritance allowed in Java?
+Java does not support multiple inheritance of classes, meaning a class cannot extend more than one class. The main reason is to avoid ambiguity in cases where multiple parent classes provide conflicting implementations, commonly referred to as the diamond problem.
+
+However, Java supports multiple inheritance of type through interfaces. A class can implement multiple interfaces, and Java provides rules for resolving conflicts, especially when interfaces contain default methods.
+
+For example, class Duck implements Flyable, Swimmable is valid, whereas class Duck extends Animal, Bird is not.
+```
+interface Camera {
+    void takePhoto();
+}
+
+interface GPS {
+    void getLocation();
+}
+
+class Smartphone implements Camera, GPS {
+
+    @Override
+    public void takePhoto() {
+        System.out.println("Taking photo");
+    }
+
+    @Override
+    public void getLocation() {
+        System.out.println("Getting location");
+    }
+}
+```
+```
+Multiple class inheritance → ❌ Java doesn't allow `extends A, B`.
+Reason → Avoids ambiguity/diamond problem.
+Multiple interfaces → ✅ A class can implement multiple interfaces.
+`implements` → Used for multiple interface inheritance.
+default method → Interface provides implementation; implementing class need not override it.
+No override → Default implementation is inherited and available.
+Override → Child can provide its own implementation.
+Abstract interface method → Concrete child must implement it.
+Java supports → Single class inheritance + multiple interface implementation.
+```
+- If an interface contains an abstract method, a concrete implementing class must provide an implementation for that method. If the class doesn't want to implement it yet, the class itself can be declared abstract and pass that responsibility to its subclass. Another option is that the interface can provide a default implementation, in which case the implementing class is not required to override the method and can simply inherit the default behavior.
+
+#### What is an interface?
+An interface in Java is a contract that defines a set of behaviors that implementing classes are expected to provide. A class implements an interface using the implements keyword. Interfaces are mainly used to achieve abstraction, loose coupling, and polymorphism, and they allow a class to implement multiple interfaces.
+
+An interface can contain abstract methods, and since Java 8 it can also contain default and static methods with implementations. It can also contain constants, which are implicitly public, static, and final.
+
+For example, if we have a Payment interface with processPayment(), classes such as UpiPayment and CardPayment can implement that contract differently. This lets the application depend on the Payment interface rather than a specific implementation.
+
+#### What is an abstract class?
+An abstract class is a class declared with the abstract keyword that is intended to be used as a superclass rather than instantiated directly. It can contain both abstract methods, which subclasses must implement, and concrete methods with shared implementation. It can also have instance variables, constructors, static methods, and other normal class members.
+
+An abstract class is useful when related classes share common state or implementation but also need to provide their own specific behavior. For example, an abstract Animal class can provide common methods like eat() while declaring sound() abstract, leaving each subclass such as Dog or Cat to implement it.
+```
+Abstract class cannot be instantiated directly.
+Abstract class does NOT have to contain an abstract method.
+Abstract class CAN have constructors.
+Abstract class CAN have concrete methods.
+Concrete subclass must implement inherited abstract methods.
+Abstract subclass can leave abstract methods unimplemented.
+A class can extend only one class, abstract or otherwise.
+```
+
+# When do you use an abstract class?
+I use an abstract class when I have a group of closely related classes that share common state or implementation, but some behavior needs to be specialized by each subclass. It lets me put the common functionality in the parent while using abstract methods to force subclasses to provide the parts that are different.
+
+For example, if I have different types of employees, the abstract Employee class can contain common fields like name and salary and common methods like showDetails(), while leaving something like calculateBonus() abstract because each employee type may calculate it differently.
+
+I would prefer an abstract class when the subclasses have a genuine common base and need shared implementation or state. If I only need to define a contract or capability without requiring shared state, an interface is usually more appropriate.
+
+# How do you define an abstract method?
+An abstract method is a method that is declared using the abstract keyword but does not have a method body. It is used when the parent class knows that a particular behavior must exist, but the actual implementation should be provided by subclasses. A concrete subclass must implement the inherited abstract method. Abstract methods can be declared only in abstract classes or interfaces.
+
+For example, abstract void sound(); declares the behavior, and subclasses like Dog or Cat provide their specific implementations.
+
+```
+abstract class Animal {
+
+    abstract void sound();
+
+    void eat() {
+        System.out.println("Animal is eating");
+    }
+}
+
+class Dog extends Animal {
+
+    @Override
+    void sound() {
+        System.out.println("Dog barks");
+    }
+}
+```
+```
+Abstract method → Declared with abstract keyword and no method body.
+Syntax → abstract void sound();
+Semicolon → Abstract method declaration ends with ;.
+Where allowed → Abstract class or interface.
+Concrete subclass → Must implement it.
+Abstract subclass → Can leave it unimplemented.
+abstract + final → Not allowed.
+abstract + static → Not allowed.
+abstract + private → Not allowed.
+Purpose → Parent defines WHAT behavior is required; subclass defines HOW.
+```
+
+#  Compare abstract class vs interface?
+The main difference is that an abstract class is used when related classes share common state or implementation, whereas an interface is primarily used to define a contract or capability.
+
+An abstract class can have instance variables, constructors, concrete methods, and abstract methods, and a class can extend only one superclass. An interface doesn't have per-object instance state and its fields are implicitly public static final; modern interfaces can contain abstract, default, static, and private methods. A class can implement multiple interfaces.
+
+So, if I need to share state and common implementation among closely related classes, I would consider an abstract class. If I need a common contract that can be implemented by different or unrelated classes, I would generally use an interface.
+
+# What is a constructor?
+A constructor is a special member of a class that is automatically invoked when an object is created. Its main purpose is to initialize the object's initial state. A constructor has the same name as the class and doesn't have a return type. Constructors can be overloaded, so a class can provide different ways of initializing its objects. If we don't declare any constructor, the compiler provides a default no-argument constructor, provided no other constructor has been declared.
+
+For example, in a Student class, a parameterized constructor can initialize fields like name and age at the time the object is created.
+```
+Constructor → Special member used to initialize an object during creation.
+Name → Same as class name.
+Return type → No return type, not even void.
+Invocation → Automatically invoked during object creation.
+Main purpose → Initialize object's initial state.
+Overloading → Constructors can be overloaded.
+Default constructor → Compiler provides it only when you declare no constructor.
+No-arg constructor ≠ always default constructor → A no-arg constructor can be written explicitly.
+this() → Calls another constructor in the same class; must be first statement.
+super() → Calls superclass constructor; must be first statement.
+Inheritance → Constructors are not inherited.
+Overriding → Constructors cannot be overridden.
+static/final/abstract → Not allowed for constructors.
+private constructor → Allowed; can restrict object creation.
+```
+# What is a default constructor?
+A default constructor is the no-argument constructor that the compiler automatically provides when a class does not declare any constructor. It initializes the object using the normal default initialization rules and implicitly invokes the superclass no-argument constructor. An important point is that once we declare any constructor ourselves, the compiler stops providing the default constructor.
+
+For example, if I have a class with no constructor, new Student() works because the compiler supplies a default constructor. But if I declare only a parameterized constructor, I have to explicitly define a no-argument constructor if I still want new Student() to work.
+
+# How do you call a super class constructor from a constructor?
+We use the super() keyword to call a superclass constructor from a subclass constructor. The arguments passed to super() must match an accessible constructor in the parent class, and the super() call must be the first statement in the child constructor. If we don't explicitly write a super() call, Java implicitly inserts a no-argument super() call, provided the parent class has an accessible no-argument constructor.
+
+For example, if Animal has a constructor accepting a name, then Dog can call it using super(name). This allows the parent class to initialize the part of the object that belongs to the parent class before the child constructor continues.
+```
+class Animal {
+
+    String name;
+
+    Animal(String name) {
+        System.out.println("Animal constructor");
+        this.name = name;
+    }
+}
+
+class Dog extends Animal {
+
+    Dog(String name) {
+        super(name);
+        System.out.println("Dog constructor");
+    }
+}
+```
+```
+super(...) → Calls a superclass constructor.
+First statement → super(...) must be first in child constructor.
+No explicit super() → Compiler inserts super() automatically if parent has accessible no-arg constructor.
+Parent constructor → Executes before child constructor body.
+Parent has only parameterized constructor → Child must explicitly call it with super(arguments).
+this(...) → Calls another constructor in the same class.
+super(...) vs this(...) → Cannot both be first statements in the same constructor.
+```
+
+# What is the use of this()?
+this() is used to call another constructor of the same class. It's mainly used for constructor chaining, so we can centralize initialization logic and avoid duplicating code across multiple constructors. The this() call must be the first statement in the constructor, and the target constructor must be an accessible constructor of the same class.
+
+For example, a no-argument constructor can call a parameterized constructor using this("Unknown", 0), allowing all the actual initialization to happen in one place.
+```
+class Employee {
+
+    String name;
+    int id;
+    String department;
+
+    Employee() {
+        this("Unknown", 0, "General");
+    }
+
+    Employee(String name, int id) {
+        this(name, id, "General");
+    }
+
+    Employee(String name, int id, String department) {
+        this.name = name;
+        this.id = id;
+        this.department = department;
+    }
+}
+```
+```
+this() → Calls another constructor of the same class.
+Main use → Constructor chaining and avoiding duplicate initialization code.
+this() → Must be the first statement of the constructor.
+super() → Calls the parent-class constructor.
+this(...) and super(...) → Cannot both be first in the same constructor.
+Constructor chaining → One constructor calls another constructor, which may eventually call super().
+```
+
+# Can a constructor be called directly from a method?
+No, a constructor cannot be called directly from a method like a normal method. A constructor is invoked as part of object creation, typically using the new keyword. If I need to initialize another object inside a method, I create that object using new, which causes its constructor to execute.
+
+The only way constructors can explicitly invoke other constructors is through constructor chaining using this() or super(), and those calls are restricted to constructors themselves.
+
+# Is a super class constructor called even when there is no explicit call from a sub class constructor?
+Yes. Every time a subclass object is created, a superclass constructor is invoked as part of the construction process. If the subclass constructor doesn't explicitly call super(...), Java implicitly inserts a no-argument super() call as the first statement. However, this is possible only if the superclass has an accessible no-argument constructor. If the superclass has only parameterized constructors, the subclass must explicitly call one using super(arguments).
+
+This ensures that the superclass portion of the object is initialized before the subclass-specific initialization takes place.
+
+#  What is polymorphism?
+Polymorphism means the ability of the same interface or method call to represent different behaviors depending on the situation. In Java, the two main forms are compile-time polymorphism through method overloading and runtime polymorphism through method overriding.
+
+For runtime polymorphism, a superclass or interface reference can point to different subclass objects, and when an overridden method is called, Java selects the implementation based on the actual object at runtime. For example, Animal animal = new Dog() and animal.sound() executes Dog's implementation if Dog overrides sound().
+
+Polymorphism is important because it allows code to depend on abstractions such as a superclass or interface rather than tightly coupling it to a specific implementation.
+
+# What is the use of instanceof operator in Java?
+The instanceof operator is used to check whether an object is an instance of a particular type, including a class, subclass, or interface. It returns a boolean result and is commonly used when we need to safely perform a downcast or handle different implementations polymorphically.
+
+For example, if Animal animal = new Dog(), animal instanceof Dog returns true because the actual object is a Dog. I can then safely cast it to Dog. It also works with interfaces, so it's useful when the runtime type of an object needs to be checked before performing type-specific operations.
+
+One important point is that instanceof checks the actual runtime object against the target type; it doesn't simply check the reference variable's declared type.
+```
+instanceof → Checks whether an object is compatible with a given type.
+Return type → boolean.
+Works with → Classes, subclasses, and interfaces.
+Common use → Check before downcasting.
+Actual object → `instanceof` checks the runtime object type, not just reference type.
+Superclass → Dog instanceof Animal is true.
+null → `null instanceof Type` returns false.
+Pattern matching → `obj instanceof Dog dog` combines checking + casting.
+instanceof vs getClass() → instanceof allows hierarchy; getClass() checks exact runtime class.
+```
+
+# What is coupling?
+Coupling refers to the degree of dependency between classes or modules. If one class is heavily dependent on the implementation details of another class, we call it tight coupling. If it depends mainly on an abstraction and can work with different implementations without significant changes, that's loose coupling.
+
+In Java, we commonly reduce coupling by using interfaces, dependency injection, and composition instead of directly creating concrete dependencies inside a class. For example, an OrderService depending on a Payment interface is more loosely coupled than directly depending on UpiPayment. Loose coupling makes code easier to test, maintain, replace, and extend.
+
+**Tight Coupling:**
+```
+class UpiPayment {
+    void processPayment() {
+        System.out.println("UPI payment");
+    }
+}
+
+class OrderService {
+
+    private UpiPayment payment = new UpiPayment();
+
+    void placeOrder() {
+        payment.processPayment();
+    }
+}
+```
+*OrderService is directly dependent on UpiPayment.*
+
+**Loose Coupling:**
+```
+interface Payment {
+    void processPayment();
+}
+
+class UpiPayment implements Payment {
+
+    public void processPayment() {
+        System.out.println("UPI payment");
+    }
+}
+
+class OrderService {
+
+    private Payment payment;
+
+    OrderService(Payment payment) {
+        this.payment = payment;
+    }
+
+    void placeOrder() {
+        payment.processPayment();
+    }
+}
+```
+```
+OrderService order1 =
+        new OrderService(new UpiPayment());
+
+OrderService order2 =
+        new OrderService(new CardPayment());
+```
+*OrderService depends on the Payment abstraction, not specifically on UpiPayment.*
+```
+             Payment
+            /       \
+     UpiPayment   CardPayment
+           ↑
+           |
+     OrderService
+```
+```
+Coupling → Degree of dependency between classes/modules.
+Tight coupling → Strong dependency on a specific implementation.
+Loose coupling → Dependence mainly on abstractions/contracts.
+Interface → Common way to reduce coupling.
+Dependency Injection → Supplies dependencies from outside instead of creating them internally.
+Benefits of loose coupling → Easier testing, maintenance, replacement, and extension.
+Design goal → Low coupling + high cohesion.
+```
+
+# What is cohesion?
+Cohesion refers to how closely related the responsibilities of a class or module are. A highly cohesive class has a focused responsibility and its methods and data are strongly related to that responsibility, while a low-cohesion class contains unrelated responsibilities. In practice, I generally aim for high cohesion because it makes code easier to understand, test, maintain, and change. This is closely related to the Single Responsibility Principle, although cohesion and SRP are not exactly the same concept.
+```
+class UserService {
+
+    void createUser() {
+    }
+
+    void updateUser() {
+    }
+
+    void deleteUser() {
+    }
+}
+```
+All three methods deal with users.
+```
+UserService
+ ├── createUser()
+ ├── updateUser()
+ └── deleteUser()
+```
+
+# What is encapsulation?
+Encapsulation is the mechanism of bundling an object's state and behavior together and restricting direct access to its internal state. In Java, this is commonly achieved by making fields private and exposing controlled public methods such as getters, setters, or business methods.
+
+The important point is that encapsulation isn't just about making fields private; it's about controlling how the object's state can be accessed and changed. For example, instead of exposing a bank account's balance directly, I can provide a deposit() method that validates the amount before modifying the balance. This protects the object's invariants and reduces unnecessary coupling to its internal representation.
+```
+Encapsulation → Bundle state + behavior and control access to internal state.
+Common technique → private fields + controlled public methods.
+private → Prevents direct external access to the field.
+Getter/setter → Possible tools, but encapsulation is not simply getters/setters.
+Business methods → Often better than unrestricted setters because they enforce rules.
+Main benefit → Protects object invariants and reduces coupling.
+Abstraction → Hides unnecessary implementation details; encapsulation controls access.
+```
+
+# What is an inner class?
+An inner class is a class declared inside another class. It's generally used when the nested class is tightly related to the enclosing class and its implementation doesn't need to be exposed as an independent top-level class. A non-static inner class is associated with an instance of the outer class and can directly access its instance members, including private members.
+
+Java actually has several forms of nested classes, including non-static inner classes, static nested classes, local classes, and anonymous classes. One important distinction is that only a non-static nested class is technically called an inner class; static nested classes are nested classes but not inner classes.
+```
+Inner class → Non-static class declared inside another class.
+Outer class → Class containing the inner class.
+Non-static inner class → Associated with an outer-class object.
+Inner class → Can directly access outer instance members, including private ones.
+Nested class → General term for any class declared inside another class.
+Static nested class → Nested but NOT technically an inner class.
+Static nested class → Doesn't require an outer-class object.
+Local class → Declared inside a method/block.
+Anonymous class → Class without a name, usually for one-time use.
+Lambdas → Often replace anonymous classes for functional interfaces.
+```
+
+# What is a static inner class?
+A static inner class, technically called a static nested class, is a class declared inside another class with the static keyword. Unlike a non-static inner class, it doesn't hold an implicit reference to an instance of the outer class, so we can create it without creating an outer-class object.
+
+It can directly access the outer class's static members, but it cannot directly access the outer class's instance members because there is no specific outer object associated with it. It's useful for grouping a helper or closely related type inside another class without requiring an enclosing object.
+
+```
+class Company {
+
+    static String companyName = "OpenTech";
+    String location = "Delhi";
+
+    static class Employee {
+
+        void display() {
+            System.out.println(companyName); // ✅
+            // System.out.println(location); // ❌
+        }
+    }
+}
+```
+Creating the object:
+```
+Company.Employee employee = new Company.Employee();
+
+employee.display();
+```
+The static nested class can access:
+
+`companyName`
+
+because companyName is static.
+
+But it cannot directly access:
+
+`location`
+
+because location belongs to a particular Company object.
+
+
+# Can you create an inner class inside a method?
+Yes. Java allows a class to be declared inside a method, and that is called a local class. Its scope is limited to the method or block where it is declared, so it cannot be directly accessed from outside that scope. A local class can access members of the enclosing class, and it can also access local variables from the enclosing method if those variables are final or effectively final. It's useful when a small helper type is needed only within a specific piece of logic.
+```
+Local class → Class declared inside a method/block.
+Scope → Limited to the method/block where declared.
+Outside access → Cannot directly access the local class.
+Local variables → Can be accessed if final/effectively final.
+Use case → Small helper type needed only within one method.
+Named class → Local class has a name.
+Anonymous class → One-off class without a name.
+```
+
+# What is an anonymous class?
+An anonymous class is a class without a declared name that is created and instantiated at the same time. It's typically used when I need a one-time implementation of an interface or an abstract/concrete class and creating a separate named class would be unnecessary.
+
+For example, I can create an anonymous implementation of a Payment interface directly at the point where it's needed. Anonymous classes are particularly useful for short, one-off implementations, although for functional interfaces, lambdas are generally preferred in modern Java when applicable.
+```
+interface Greeting {
+    void sayHello();
+}
+
+public class Main {
+    public static void main(String[] args) {
+
+        Greeting greeting = new Greeting() {
+
+            @Override
+            public void sayHello() {
+                System.out.println("Hello Ritesh");
+            }
+        };
+
+        greeting.sayHello();
+    }
+}
+```
+```
+Anonymous class → Class without a name, created and instantiated at the same time.
+Main use → One-time implementation without creating a separate named class.
+Can implement → Interface.
+Can extend → Abstract or concrete class.
+Local class → Named class inside a method.
+Anonymous class → Unnamed class at point of use.
+Functional interface → Lambda is usually preferred for simple cases.
+Common historical uses → Callbacks, Runnable, listeners, Comparator.
+```
+
+### Modifiers
+
+#  What is default class modifier?
+If no access modifier is specified for a class, it has package-private, also called default access. This means the class is accessible only to other classes in the same package. default isn't a keyword being applied to the class; it refers to the access level when no modifier is specified. For a top-level class, the other available access level is public, while private and protected aren't allowed.
+```
+No class modifier → package-private/default access.
+Package-private → Accessible only within the same package.
+default → Not a keyword for this access level; it means no explicit modifier.
+Top-level class → Can be public or package-private only.
+Top-level class → Cannot be private or protected.
+Nested class → Can have private/protected/default/public.
+```
+
+# What is private access modifier?  
+private is the most restrictive access modifier in Java. A private field, method, constructor, or nested class can be accessed only from within the class where it is declared. It is commonly used to hide internal implementation details and protect an object's state, which supports encapsulation. For example, I would typically keep a field like balance private and expose controlled operations such as deposit() or withdraw() instead of allowing direct modification.
+```
+private → Most restrictive access modifier.
+Access → Only within the class where declared.
+Package access → Other classes in same package cannot directly access it.
+Subclass access → Not directly accessible in child class.
+Use → Encapsulation and hiding implementation details.
+Can be used with → fields, methods, constructors, nested classes.
+Top-level class → Cannot be private.
+```
+
+# What is default or package access modifier?
+Default access, technically called package-private access, is the access level you get when no access modifier is specified. The member is accessible to other classes in the same package, but not directly accessible from classes in a different package. It's commonly used when classes or members are intended to be shared internally within a package rather than exposed as part of the public API.
+
+For example, if I declare class Employee without an access modifier, other classes in the same package can use it, while classes from another package cannot directly access it.
+
+# What is protected access modifier?
+protected provides access to a member from all classes in the same package and from subclasses, including subclasses in other packages. The important difference from package-private is the cross-package inheritance rule: a subclass in another package can access the protected member through its inherited context, but it doesn't get unrestricted access to that member through any arbitrary superclass object.
+
+It's useful when a class wants to expose certain implementation details to its subclasses and package-level collaborators, while keeping those members hidden from unrelated classes in other packages.
+```
+protected → Accessible in same package + subclasses in other packages.
+Same package → protected behaves like package-private access.
+Different package → Access comes through inheritance.
+Arbitrary superclass object → Not freely accessible from a cross-package subclass.
+Top-level class → Cannot be protected.
+Nested class → Can be protected.
+Use → Expose controlled functionality/state to subclasses and package collaborators.
+```
+
+# What is public access modifier?
+public is the least restrictive access modifier in Java. A public member can be accessed from any class, including classes in different packages, provided the enclosing class is accessible. It's commonly used for APIs and methods that are intentionally exposed to other parts of the application.
+
+For example, a public service method can be called from another package. However, I wouldn't make fields public unnecessarily because that exposes the internal state directly; I'd generally keep state private and expose controlled public methods instead.
+
+# What access types of variables can be accessed from a class in same package?
+If a class is in the same package as another class, it can directly access that class's public, protected, and package-private members. It cannot directly access private members because private access is restricted to the declaring class itself.
+
+So, within the same package, protected behaves similarly to package-private access; the additional protected privilege is that subclasses can also access it across package boundaries.
+
+# What access types of variables can be accessed from a class in different package?
+From a class in a different package, public members are directly accessible. private and package-private members are not accessible. protected is accessible only through inheritance when the accessing class is a subclass, and cross-package protected access has some additional restrictions compared with same-package access. So, for an unrelated class in another package, only public members are directly accessible.
+```
+Different package + unrelated class → public ✅ only.
+Different package + subclass → public ✅ and protected ✅.
+Package-private/default → Same package only.
+private → Declaring class only.
+protected → Same package OR subclass access across packages.
+```
+
+# What access types of variables can be accessed from a sub class in same package?
+If a subclass is in the same package as its superclass, it can directly access the superclass's public, protected, and package-private members. It cannot directly access private members because private access is restricted to the class that declares the member.
+
+So in this case, inheritance doesn't give any additional restriction for protected members because same-package access already allows them. The important distinction appears when the subclass is in a different package.
+```
+Subclass + same package → public ✅, protected ✅, default ✅, private ❌.
+private → Only declaring class.
+protected → Accessible through same-package access or inheritance.
+```
+
+# What access types of variables can be accessed from a sub class in different package?
+When a subclass is in a different package from its superclass, it can directly access the superclass's public and protected members. It cannot directly access private or package-private members. The important point with protected access is that, across package boundaries, access is provided through the inheritance relationship rather than ordinary package access.
+
+So for a subclass in another package, the practical rule is public plus protected; default and private are not directly accessible.
+```
+Subclass + different package → public ✅, protected ✅, default ❌, private ❌.
+protected → Accessible across packages through inheritance.
+default/package-private → Same package only.
+private → Declaring class only.
+Cross-package protected → Not unrestricted access through any Parent object.
+```
+
+
+# What is the use of a final modifier on a class?
+The final modifier on a class prevents the class from being inherited or extended. We use it when we don't want subclasses to modify or extend the class's behavior, which can help preserve class invariants, enforce design constraints, and sometimes provide security benefits. A common example is String, which is final in Java.
+
+One important point is that final does not make the objects of the class immutable by itself. It only prevents inheritance.
+```
+final class → Cannot be extended/inherited.
+Main use → Prevent subclassing and preserve intended design/invariants.
+Example → String is a final class.
+Instantiation → final classes can still be instantiated.
+final ≠ immutable → final prevents inheritance, not state changes.
+Security/design → Can prevent subclasses from overriding/extending behavior.
+abstract + final → Not allowed together.
+```
+
+# What is the use of a final modifier on a method?
+The final modifier on a method prevents that method from being overridden by subclasses. The method can still be inherited and called normally, but a subclass cannot provide a different implementation for it. We use it when a particular behavior must remain consistent across the inheritance hierarchy, such as when the parent class needs to enforce an important invariant or workflow.
+```
+final method → Cannot be overridden by a subclass.
+Can be inherited → Yes.
+Can be called → Yes.
+Can be overloaded → Yes.
+Main use → Prevent subclasses from changing specific behavior.
+final class → Prevents inheritance entirely.
+final variable → Prevents reassignment.
+```
+
+# What is a final variable?
+A final variable is a variable that can be assigned only once. After initialization, it cannot be reassigned. For a primitive, this means its value cannot change. For an object reference, the reference cannot point to another object, although the referenced object's internal state may still be mutable.
+
+A final variable can be initialized at declaration time, in a constructor for an instance field, or in an initialization block depending on where it's declared. When a static final variable represents a constant, we conventionally use uppercase names such as MAX_RETRY_COUNT.
+```
+final variable → Can be assigned only once.
+Primitive + final → Value cannot be changed/reassigned.
+Object reference + final → Reference cannot point to another object; object may still be mutable.
+Final field → Can be initialized at declaration, initialization block, or constructor as appropriate.
+Blank final → final field declared without initial value; must be definitely assigned before construction completes.
+static final → Common way to define class-level constants.
+final parameter → Parameter cannot be reassigned inside the method.
+final ≠ immutable → Final reference can still point to a mutable object.
+```
+
+# What is a final argument?
+A final parameter is a method or constructor parameter that cannot be reassigned inside that method or constructor. It is mainly used when we want to prevent accidental reassignment of the parameter variable. For primitive parameters, the value can't be reassigned; for object parameters, the reference can't be changed to point to another object, although the object's internal state may still be modified.
+
+Also, technically, final applies to the parameter variable, not to the argument passed by the caller.
+```
+final parameter → Cannot be reassigned inside the method/constructor.
+Primitive parameter → Value cannot be reassigned.
+Object parameter → Reference cannot be reassigned; object may still be mutable.
+Technical term → `final` applies to the parameter, not the caller's argument.
+Use → Prevent accidental reassignment inside the method.
+```
+
+# What happens when a variable is marked as volatile?
+When a field is declared volatile, it tells the Java Memory Model that the field can be accessed by multiple threads and that reads and writes to it must have the required cross-thread visibility and ordering guarantees. A write to a volatile variable happens-before a subsequent read of that same variable.
+
+However, volatile does not provide mutual exclusion or make compound operations atomic. For example, volatile int count; count++ is still not thread-safe because increment is a read-modify-write operation. I would typically use volatile for simple state or flags where visibility is the main requirement, and use synchronization or atomic classes when I need atomic compound operations.
+```
+volatile → Mainly provides cross-thread visibility and ordering for a field.
+Happens-before → Volatile write happens-before a subsequent read of the same variable.
+Visibility → Other threads can observe updates reliably.
+Atomicity → volatile does NOT make compound operations atomic.
+count++ → Not thread-safe even when count is volatile.
+Use case → Simple shared state/flags such as shutdown or running status.
+synchronized → Provides mutual exclusion in addition to visibility/ordering.
+volatile reference → Makes the reference volatile, not necessarily the referenced object's state.
+Scope → volatile applies to fields, not local variables or parameters.
+```
+
+# What is a static variable?
+A static variable is a class-level variable, meaning it belongs to the class rather than to individual objects. Only one logical copy is associated with the class, and all objects of that class share it. It's useful when a value represents something common to all instances, such as a company name, configuration value, or instance counter. We normally access it using the class name, like Employee.company.
+
+Unlike an instance variable, a static variable doesn't get a separate copy for every object. Also, static variables can be accessed from static methods directly, whereas instance variables require an object.
+```
+Static variable → Class-level variable shared by all objects.
+Instance variable → Separate copy for each object.
+static → Shared, not constant.
+static final → Common pattern for constants.
+Access → Prefer ClassName.variable.
+Static method → Can directly access static variables.
+Static method → Cannot directly access instance variables without an object.
+Use cases → Shared configuration, counters, constants, class-level state.
+```
+
