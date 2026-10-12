@@ -398,14 +398,14 @@ Abstract subclass can leave abstract methods unimplemented.
 A class can extend only one class, abstract or otherwise.
 ```
 
-# When do you use an abstract class?
+#### When do you use an abstract class?
 I use an abstract class when I have a group of closely related classes that share common state or implementation, but some behavior needs to be specialized by each subclass. It lets me put the common functionality in the parent while using abstract methods to force subclasses to provide the parts that are different.
 
 For example, if I have different types of employees, the abstract Employee class can contain common fields like name and salary and common methods like showDetails(), while leaving something like calculateBonus() abstract because each employee type may calculate it differently.
 
 I would prefer an abstract class when the subclasses have a genuine common base and need shared implementation or state. If I only need to define a contract or capability without requiring shared state, an interface is usually more appropriate.
 
-# How do you define an abstract method?
+#### How do you define an abstract method?
 An abstract method is a method that is declared using the abstract keyword but does not have a method body. It is used when the parent class knows that a particular behavior must exist, but the actual implementation should be provided by subclasses. A concrete subclass must implement the inherited abstract method. Abstract methods can be declared only in abstract classes or interfaces.
 
 For example, abstract void sound(); declares the behavior, and subclasses like Dog or Cat provide their specific implementations.
@@ -441,14 +441,14 @@ abstract + private → Not allowed.
 Purpose → Parent defines WHAT behavior is required; subclass defines HOW.
 ```
 
-#  Compare abstract class vs interface?
+####  Compare abstract class vs interface?
 The main difference is that an abstract class is used when related classes share common state or implementation, whereas an interface is primarily used to define a contract or capability.
 
 An abstract class can have instance variables, constructors, concrete methods, and abstract methods, and a class can extend only one superclass. An interface doesn't have per-object instance state and its fields are implicitly public static final; modern interfaces can contain abstract, default, static, and private methods. A class can implement multiple interfaces.
 
 So, if I need to share state and common implementation among closely related classes, I would consider an abstract class. If I need a common contract that can be implemented by different or unrelated classes, I would generally use an interface.
 
-# What is a constructor?
+#### What is a constructor?
 A constructor is a special member of a class that is automatically invoked when an object is created. Its main purpose is to initialize the object's initial state. A constructor has the same name as the class and doesn't have a return type. Constructors can be overloaded, so a class can provide different ways of initializing its objects. If we don't declare any constructor, the compiler provides a default no-argument constructor, provided no other constructor has been declared.
 
 For example, in a Student class, a parameterized constructor can initialize fields like name and age at the time the object is created.
@@ -468,12 +468,12 @@ Overriding → Constructors cannot be overridden.
 static/final/abstract → Not allowed for constructors.
 private constructor → Allowed; can restrict object creation.
 ```
-# What is a default constructor?
+#### What is a default constructor?
 A default constructor is the no-argument constructor that the compiler automatically provides when a class does not declare any constructor. It initializes the object using the normal default initialization rules and implicitly invokes the superclass no-argument constructor. An important point is that once we declare any constructor ourselves, the compiler stops providing the default constructor.
 
 For example, if I have a class with no constructor, new Student() works because the compiler supplies a default constructor. But if I declare only a parameterized constructor, I have to explicitly define a no-argument constructor if I still want new Student() to work.
 
-# How do you call a super class constructor from a constructor?
+#### How do you call a super class constructor from a constructor?
 We use the super() keyword to call a superclass constructor from a subclass constructor. The arguments passed to super() must match an accessible constructor in the parent class, and the super() call must be the first statement in the child constructor. If we don't explicitly write a super() call, Java implicitly inserts a no-argument super() call, provided the parent class has an accessible no-argument constructor.
 
 For example, if Animal has a constructor accepting a name, then Dog can call it using super(name). This allows the parent class to initialize the part of the object that belongs to the parent class before the child constructor continues.
@@ -506,7 +506,7 @@ this(...) → Calls another constructor in the same class.
 super(...) vs this(...) → Cannot both be first statements in the same constructor.
 ```
 
-# What is the use of this()?
+#### What is the use of this()?
 this() is used to call another constructor of the same class. It's mainly used for constructor chaining, so we can centralize initialization logic and avoid duplicating code across multiple constructors. The this() call must be the first statement in the constructor, and the target constructor must be an accessible constructor of the same class.
 
 For example, a no-argument constructor can call a parameterized constructor using this("Unknown", 0), allowing all the actual initialization to happen in one place.
@@ -541,24 +541,24 @@ this(...) and super(...) → Cannot both be first in the same constructor.
 Constructor chaining → One constructor calls another constructor, which may eventually call super().
 ```
 
-# Can a constructor be called directly from a method?
+#### Can a constructor be called directly from a method?
 No, a constructor cannot be called directly from a method like a normal method. A constructor is invoked as part of object creation, typically using the new keyword. If I need to initialize another object inside a method, I create that object using new, which causes its constructor to execute.
 
 The only way constructors can explicitly invoke other constructors is through constructor chaining using this() or super(), and those calls are restricted to constructors themselves.
 
-# Is a super class constructor called even when there is no explicit call from a sub class constructor?
+#### Is a super class constructor called even when there is no explicit call from a sub class constructor?
 Yes. Every time a subclass object is created, a superclass constructor is invoked as part of the construction process. If the subclass constructor doesn't explicitly call super(...), Java implicitly inserts a no-argument super() call as the first statement. However, this is possible only if the superclass has an accessible no-argument constructor. If the superclass has only parameterized constructors, the subclass must explicitly call one using super(arguments).
 
 This ensures that the superclass portion of the object is initialized before the subclass-specific initialization takes place.
 
-#  What is polymorphism?
+####  What is polymorphism?
 Polymorphism means the ability of the same interface or method call to represent different behaviors depending on the situation. In Java, the two main forms are compile-time polymorphism through method overloading and runtime polymorphism through method overriding.
 
 For runtime polymorphism, a superclass or interface reference can point to different subclass objects, and when an overridden method is called, Java selects the implementation based on the actual object at runtime. For example, Animal animal = new Dog() and animal.sound() executes Dog's implementation if Dog overrides sound().
 
 Polymorphism is important because it allows code to depend on abstractions such as a superclass or interface rather than tightly coupling it to a specific implementation.
 
-# What is the use of instanceof operator in Java?
+#### What is the use of instanceof operator in Java?
 The instanceof operator is used to check whether an object is an instance of a particular type, including a class, subclass, or interface. It returns a boolean result and is commonly used when we need to safely perform a downcast or handle different implementations polymorphically.
 
 For example, if Animal animal = new Dog(), animal instanceof Dog returns true because the actual object is a Dog. I can then safely cast it to Dog. It also works with interfaces, so it's useful when the runtime type of an object needs to be checked before performing type-specific operations.
@@ -576,7 +576,7 @@ Pattern matching → `obj instanceof Dog dog` combines checking + casting.
 instanceof vs getClass() → instanceof allows hierarchy; getClass() checks exact runtime class.
 ```
 
-# What is coupling?
+#### What is coupling?
 Coupling refers to the degree of dependency between classes or modules. If one class is heavily dependent on the implementation details of another class, we call it tight coupling. If it depends mainly on an abstraction and can work with different implementations without significant changes, that's loose coupling.
 
 In Java, we commonly reduce coupling by using interfaces, dependency injection, and composition instead of directly creating concrete dependencies inside a class. For example, an OrderService depending on a Payment interface is more loosely coupled than directly depending on UpiPayment. Loose coupling makes code easier to test, maintain, replace, and extend.
@@ -652,7 +652,7 @@ Benefits of loose coupling → Easier testing, maintenance, replacement, and ext
 Design goal → Low coupling + high cohesion.
 ```
 
-# What is cohesion?
+#### What is cohesion?
 Cohesion refers to how closely related the responsibilities of a class or module are. A highly cohesive class has a focused responsibility and its methods and data are strongly related to that responsibility, while a low-cohesion class contains unrelated responsibilities. In practice, I generally aim for high cohesion because it makes code easier to understand, test, maintain, and change. This is closely related to the Single Responsibility Principle, although cohesion and SRP are not exactly the same concept.
 ```
 class UserService {
@@ -675,7 +675,7 @@ UserService
  └── deleteUser()
 ```
 
-# What is encapsulation?
+#### What is encapsulation?
 Encapsulation is the mechanism of bundling an object's state and behavior together and restricting direct access to its internal state. In Java, this is commonly achieved by making fields private and exposing controlled public methods such as getters, setters, or business methods.
 
 The important point is that encapsulation isn't just about making fields private; it's about controlling how the object's state can be accessed and changed. For example, instead of exposing a bank account's balance directly, I can provide a deposit() method that validates the amount before modifying the balance. This protects the object's invariants and reduces unnecessary coupling to its internal representation.
@@ -689,7 +689,7 @@ Main benefit → Protects object invariants and reduces coupling.
 Abstraction → Hides unnecessary implementation details; encapsulation controls access.
 ```
 
-# What is an inner class?
+#### What is an inner class?
 An inner class is a class declared inside another class. It's generally used when the nested class is tightly related to the enclosing class and its implementation doesn't need to be exposed as an independent top-level class. A non-static inner class is associated with an instance of the outer class and can directly access its instance members, including private members.
 
 Java actually has several forms of nested classes, including non-static inner classes, static nested classes, local classes, and anonymous classes. One important distinction is that only a non-static nested class is technically called an inner class; static nested classes are nested classes but not inner classes.
@@ -706,7 +706,7 @@ Anonymous class → Class without a name, usually for one-time use.
 Lambdas → Often replace anonymous classes for functional interfaces.
 ```
 
-# What is a static inner class?
+#### What is a static inner class?
 A static inner class, technically called a static nested class, is a class declared inside another class with the static keyword. Unlike a non-static inner class, it doesn't hold an implicit reference to an instance of the outer class, so we can create it without creating an outer-class object.
 
 It can directly access the outer class's static members, but it cannot directly access the outer class's instance members because there is no specific outer object associated with it. It's useful for grouping a helper or closely related type inside another class without requiring an enclosing object.
@@ -745,7 +745,7 @@ But it cannot directly access:
 because location belongs to a particular Company object.
 
 
-# Can you create an inner class inside a method?
+#### Can you create an inner class inside a method?
 Yes. Java allows a class to be declared inside a method, and that is called a local class. Its scope is limited to the method or block where it is declared, so it cannot be directly accessed from outside that scope. A local class can access members of the enclosing class, and it can also access local variables from the enclosing method if those variables are final or effectively final. It's useful when a small helper type is needed only within a specific piece of logic.
 ```
 Local class → Class declared inside a method/block.
@@ -757,7 +757,7 @@ Named class → Local class has a name.
 Anonymous class → One-off class without a name.
 ```
 
-# What is an anonymous class?
+#### What is an anonymous class?
 An anonymous class is a class without a declared name that is created and instantiated at the same time. It's typically used when I need a one-time implementation of an interface or an abstract/concrete class and creating a separate named class would be unnecessary.
 
 For example, I can create an anonymous implementation of a Payment interface directly at the point where it's needed. Anonymous classes are particularly useful for short, one-off implementations, although for functional interfaces, lambdas are generally preferred in modern Java when applicable.
@@ -794,7 +794,7 @@ Common historical uses → Callbacks, Runnable, listeners, Comparator.
 
 ### Modifiers
 
-#  What is default class modifier?
+####  What is default class modifier?
 If no access modifier is specified for a class, it has package-private, also called default access. This means the class is accessible only to other classes in the same package. default isn't a keyword being applied to the class; it refers to the access level when no modifier is specified. For a top-level class, the other available access level is public, while private and protected aren't allowed.
 ```
 No class modifier → package-private/default access.
@@ -805,7 +805,7 @@ Top-level class → Cannot be private or protected.
 Nested class → Can have private/protected/default/public.
 ```
 
-# What is private access modifier?  
+#### What is private access modifier?  
 private is the most restrictive access modifier in Java. A private field, method, constructor, or nested class can be accessed only from within the class where it is declared. It is commonly used to hide internal implementation details and protect an object's state, which supports encapsulation. For example, I would typically keep a field like balance private and expose controlled operations such as deposit() or withdraw() instead of allowing direct modification.
 ```
 private → Most restrictive access modifier.
@@ -817,12 +817,12 @@ Can be used with → fields, methods, constructors, nested classes.
 Top-level class → Cannot be private.
 ```
 
-# What is default or package access modifier?
+#### What is default or package access modifier?
 Default access, technically called package-private access, is the access level you get when no access modifier is specified. The member is accessible to other classes in the same package, but not directly accessible from classes in a different package. It's commonly used when classes or members are intended to be shared internally within a package rather than exposed as part of the public API.
 
 For example, if I declare class Employee without an access modifier, other classes in the same package can use it, while classes from another package cannot directly access it.
 
-# What is protected access modifier?
+#### What is protected access modifier?
 protected provides access to a member from all classes in the same package and from subclasses, including subclasses in other packages. The important difference from package-private is the cross-package inheritance rule: a subclass in another package can access the protected member through its inherited context, but it doesn't get unrestricted access to that member through any arbitrary superclass object.
 
 It's useful when a class wants to expose certain implementation details to its subclasses and package-level collaborators, while keeping those members hidden from unrelated classes in other packages.
@@ -836,17 +836,17 @@ Nested class → Can be protected.
 Use → Expose controlled functionality/state to subclasses and package collaborators.
 ```
 
-# What is public access modifier?
+#### What is public access modifier?
 public is the least restrictive access modifier in Java. A public member can be accessed from any class, including classes in different packages, provided the enclosing class is accessible. It's commonly used for APIs and methods that are intentionally exposed to other parts of the application.
 
 For example, a public service method can be called from another package. However, I wouldn't make fields public unnecessarily because that exposes the internal state directly; I'd generally keep state private and expose controlled public methods instead.
 
-# What access types of variables can be accessed from a class in same package?
+#### What access types of variables can be accessed from a class in same package?
 If a class is in the same package as another class, it can directly access that class's public, protected, and package-private members. It cannot directly access private members because private access is restricted to the declaring class itself.
 
 So, within the same package, protected behaves similarly to package-private access; the additional protected privilege is that subclasses can also access it across package boundaries.
 
-# What access types of variables can be accessed from a class in different package?
+#### What access types of variables can be accessed from a class in different package?
 From a class in a different package, public members are directly accessible. private and package-private members are not accessible. protected is accessible only through inheritance when the accessing class is a subclass, and cross-package protected access has some additional restrictions compared with same-package access. So, for an unrelated class in another package, only public members are directly accessible.
 ```
 Different package + unrelated class → public ✅ only.
@@ -856,7 +856,7 @@ private → Declaring class only.
 protected → Same package OR subclass access across packages.
 ```
 
-# What access types of variables can be accessed from a sub class in same package?
+#### What access types of variables can be accessed from a sub class in same package?
 If a subclass is in the same package as its superclass, it can directly access the superclass's public, protected, and package-private members. It cannot directly access private members because private access is restricted to the class that declares the member.
 
 So in this case, inheritance doesn't give any additional restriction for protected members because same-package access already allows them. The important distinction appears when the subclass is in a different package.
@@ -866,7 +866,7 @@ private → Only declaring class.
 protected → Accessible through same-package access or inheritance.
 ```
 
-# What access types of variables can be accessed from a sub class in different package?
+#### What access types of variables can be accessed from a sub class in different package?
 When a subclass is in a different package from its superclass, it can directly access the superclass's public and protected members. It cannot directly access private or package-private members. The important point with protected access is that, across package boundaries, access is provided through the inheritance relationship rather than ordinary package access.
 
 So for a subclass in another package, the practical rule is public plus protected; default and private are not directly accessible.
@@ -879,7 +879,7 @@ Cross-package protected → Not unrestricted access through any Parent object.
 ```
 
 
-# What is the use of a final modifier on a class?
+#### What is the use of a final modifier on a class?
 The final modifier on a class prevents the class from being inherited or extended. We use it when we don't want subclasses to modify or extend the class's behavior, which can help preserve class invariants, enforce design constraints, and sometimes provide security benefits. A common example is String, which is final in Java.
 
 One important point is that final does not make the objects of the class immutable by itself. It only prevents inheritance.
@@ -893,7 +893,7 @@ Security/design → Can prevent subclasses from overriding/extending behavior.
 abstract + final → Not allowed together.
 ```
 
-# What is the use of a final modifier on a method?
+#### What is the use of a final modifier on a method?
 The final modifier on a method prevents that method from being overridden by subclasses. The method can still be inherited and called normally, but a subclass cannot provide a different implementation for it. We use it when a particular behavior must remain consistent across the inheritance hierarchy, such as when the parent class needs to enforce an important invariant or workflow.
 ```
 final method → Cannot be overridden by a subclass.
@@ -905,7 +905,7 @@ final class → Prevents inheritance entirely.
 final variable → Prevents reassignment.
 ```
 
-# What is a final variable?
+#### What is a final variable?
 A final variable is a variable that can be assigned only once. After initialization, it cannot be reassigned. For a primitive, this means its value cannot change. For an object reference, the reference cannot point to another object, although the referenced object's internal state may still be mutable.
 
 A final variable can be initialized at declaration time, in a constructor for an instance field, or in an initialization block depending on where it's declared. When a static final variable represents a constant, we conventionally use uppercase names such as MAX_RETRY_COUNT.
@@ -920,7 +920,7 @@ final parameter → Parameter cannot be reassigned inside the method.
 final ≠ immutable → Final reference can still point to a mutable object.
 ```
 
-# What is a final argument?
+#### What is a final argument?
 A final parameter is a method or constructor parameter that cannot be reassigned inside that method or constructor. It is mainly used when we want to prevent accidental reassignment of the parameter variable. For primitive parameters, the value can't be reassigned; for object parameters, the reference can't be changed to point to another object, although the object's internal state may still be modified.
 
 Also, technically, final applies to the parameter variable, not to the argument passed by the caller.
@@ -932,7 +932,7 @@ Technical term → `final` applies to the parameter, not the caller's argument.
 Use → Prevent accidental reassignment inside the method.
 ```
 
-# What happens when a variable is marked as volatile?
+#### What happens when a variable is marked as volatile?
 When a field is declared volatile, it tells the Java Memory Model that the field can be accessed by multiple threads and that reads and writes to it must have the required cross-thread visibility and ordering guarantees. A write to a volatile variable happens-before a subsequent read of that same variable.
 
 However, volatile does not provide mutual exclusion or make compound operations atomic. For example, volatile int count; count++ is still not thread-safe because increment is a read-modify-write operation. I would typically use volatile for simple state or flags where visibility is the main requirement, and use synchronization or atomic classes when I need atomic compound operations.
@@ -948,7 +948,7 @@ volatile reference → Makes the reference volatile, not necessarily the referen
 Scope → volatile applies to fields, not local variables or parameters.
 ```
 
-# What is a static variable?
+#### What is a static variable?
 A static variable is a class-level variable, meaning it belongs to the class rather than to individual objects. Only one logical copy is associated with the class, and all objects of that class share it. It's useful when a value represents something common to all instances, such as a company name, configuration value, or instance counter. We normally access it using the class name, like Employee.company.
 
 Unlike an instance variable, a static variable doesn't get a separate copy for every object. Also, static variables can be accessed from static methods directly, whereas instance variables require an object.
@@ -961,5 +961,1125 @@ Access → Prefer ClassName.variable.
 Static method → Can directly access static variables.
 Static method → Cannot directly access instance variables without an object.
 Use cases → Shared configuration, counters, constants, class-level state.
+```
+
+### Collections
+
+# Why do we need collections in Java?
+We use collections in Java when we need to store and work with multiple objects. Unlike arrays, collections can grow or shrink dynamically and provide different types of data structures based on our requirement.
+
+For example, we use a `List` when we want to maintain order, a `Set` when we don't want duplicates, and a `Map` when we want to store data as key-value pairs.
+
+Collections also provide ready-made methods for adding, removing, searching, and sorting data, so we don't have to implement these operations ourselves.
+
+In real applications, collections are used everywhere, such as storing users, database results, or mapping IDs to objects.
+```
+Collections → Used to store/manage groups of objects.
+Main advantage → Flexible data structures + ready-made operations.
+Array → Fixed size.
+List → Ordered, duplicates allowed.
+Set → Unique elements.
+Map → Key-value pairs; Map is not a subtype of Collection.
+Queue → Designed for ordered processing.
+Dynamic sizing → Collections can grow/shrink as needed.
+Generics → Provide type safety, e.g. List<String>.
+Backend use → Users, database results, IDs, tasks, configuration, etc.
+```
+
+# What are the important interfaces in the collection hierarchy?
+The main interfaces in the Java Collection hierarchy are Collection, List, Set, Queue, and Deque. Collection provides common operations for groups of objects. List is used when we need ordered data and can allow duplicates, Set is used for unique elements, Queue is used for processing elements in a particular order, and Deque allows operations from both ends.
+
+There is also Map, which is part of the Java Collections Framework, but it is not a child of the Collection interface because it stores data as key-value pairs.
+
+# What are the important methods that are declared in the collection interface?
+The `Collection` interface provides common methods that are used to work with a group of objects. The important ones are `add()`, `remove()`, `contains()`, `size()`, `isEmpty()`, `clear()`, and `iterator()`.
+
+For adding multiple elements, we have `addAll()`, and for checking multiple elements, we have `containsAll()`. These methods are common across collection types like `List`, `Set`, and `Queue`, although their exact behavior can differ depending on the implementation.
+```
+add() → Adds one element.
+addAll() → Adds multiple elements.
+remove() → Removes an element.
+removeAll() → Removes matching elements from another collection.
+contains() → Checks whether an element exists.
+containsAll() → Checks whether all given elements exist.
+size() → Returns number of elements.
+isEmpty() → Checks whether collection has no elements.
+clear() → Removes all elements.
+iterator() → Used to traverse the collection.
+```
+
+# Can you explain briefly about the List interface?
+List is an interface in the Java Collections Framework that we use when we need to store multiple elements in a specific order. It maintains insertion order, allows duplicate elements, and provides index-based access, so we can get or update an element using its position. Common implementations are ArrayList, LinkedList, and Vector. In practice, ArrayList is usually my default choice when I need a general-purpose list, while I would choose another implementation based on the specific requirement.
+```
+List → Ordered collection of elements.
+Order → Insertion order is maintained.
+Duplicates → Allowed.
+Index → Supports index-based access.
+Common implementations → ArrayList, LinkedList, Vector.
+ArrayList → Common default choice.
+List can contain null → Generally yes, depending on implementation.
+```
+
+# Explain about ArrayList with an example?
+ArrayList is a resizable array implementation of the List interface. I would use it when I need an ordered collection that allows duplicates and provides fast index-based access. Its size grows automatically as elements are added, unlike a normal array.
+
+Internally, it uses an array, and when the current capacity is not enough, it grows the underlying array and copies the existing elements. Reading an element by index is efficient, while inserting or removing elements in the middle can be more expensive because the remaining elements may need to be shifted.
+
+For that reason, ArrayList is usually my default List implementation unless I have a specific requirement that makes another implementation more suitable.
+```
+get(index) → O(1) average; direct index-based access.
+add(element) → O(1) amortized; occasional resize makes one addition more expensive.
+add(index, element) → O(n); elements may need to shift.
+remove(index) → O(n); elements may need to shift.
+contains(element) → O(n); searches through elements.
+```
+ArrayList is very good for reading/accessing elements by index, but inserting or removing elements in the middle is relatively expensive.
+
+```
+ArrayList → Resizable-array implementation of List.
+Order → Maintains insertion order.
+Duplicates → Allowed.
+Index access → Fast, O(1) average.
+Size → Grows automatically.
+Internal structure → Backed by an array.
+Middle insert/remove → O(n) because elements may shift.
+End add → O(1) amortized.
+Default List choice → Usually ArrayList unless another requirement exists.
+Not synchronized → Multiple threads modifying it concurrently need external/thread-safe handling.
+```
+# How do you iterate around an ArrayList using iterator?
+To iterate over an ArrayList using an Iterator, I first call the iterator() method on the list, which returns an Iterator. Then I use hasNext() to check whether another element is available and next() to retrieve it.
+
+One advantage of using an iterator is that it provides a standard way to traverse collections, and it also allows safe removal of elements during iteration using iterator.remove(). This is preferable to directly modifying the list while iterating, which can otherwise result in a ConcurrentModificationException.
+```
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+class Main {
+    public static void main(String[] args) {
+
+        List<String> names = new ArrayList<>();
+
+        names.add("Ritesh");
+        names.add("Rahul");
+        names.add("Aman");
+
+        Iterator<String> iterator = names.iterator();
+
+        while (iterator.hasNext()) {
+            String name = iterator.next();
+            System.out.println(name);
+        }
+    }
+}
+```
+```
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+class Main {
+    public static void main(String[] args) {
+
+        List<String> names = new ArrayList<>();
+
+        names.add("Ritesh");
+        names.add("Rahul");
+        names.add("Aman");
+
+        Iterator<String> iterator = names.iterator();
+
+        while (iterator.hasNext()) {
+            String name = iterator.next();
+
+            if (name.equals("Rahul")) {
+                iterator.remove();
+            }
+        }
+
+        System.out.println(names);
+    }
+}
+```
+```
+Iterator → Used to traverse collection elements one by one.
+iterator() → Returns an Iterator object.
+hasNext() → Checks if another element exists.
+next() → Returns the next element.
+remove() → Safely removes the last element returned by next().
+Why Iterator? → Standard traversal + safe removal during iteration.
+Direct list modification during iteration → Can cause ConcurrentModificationException.
+```
+# How do you sort an ArrayList?
+For an ArrayList, I can sort the elements using Collections.sort() or, in modern Java, the List.sort() method. By default, elements are sorted according to their natural ordering, such as numbers in ascending order or strings alphabetically. If I need a different order, I can provide a Comparator.
+
+For example, Collections.sort(numbers) sorts a list of integers in ascending order, while numbers.sort(Comparator.reverseOrder()) sorts them in descending order. For custom objects, I would normally use a Comparator to define the sorting logic based on the required field.
+```
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+class Main {
+    public static void main(String[] args) {
+
+        List<Integer> numbers = new ArrayList<>();
+
+        numbers.add(40);
+        numbers.add(10);
+        numbers.add(30);
+        numbers.add(20);
+
+        Collections.sort(numbers); or numbers.sort(Comparator.naturalOrder()); // [10, 20, 30, 40]
+        Collections.sort(numbers, Collections.reverseOrder()); or numbers.sort(Comparator.reverseOrder());  // [40, 30, 20, 10]
+
+        System.out.println(numbers);
+    }
+}
+```
+
+**- Example: Custom Object**
+Suppose:
+```
+class Employee {
+    String name;
+    int salary;
+
+    Employee(String name, int salary) {
+        this.name = name;
+        this.salary = salary;
+    }
+}
+```
+We can sort employees by salary:
+```
+List<Employee> employees = new ArrayList<>();
+
+employees.add(new Employee("Ritesh", 50000));
+employees.add(new Employee("Rahul", 70000));
+employees.add(new Employee("Aman", 40000));
+
+employees.sort(Comparator.comparingInt(e -> e.salary));
+```
+Now the list is sorted by salary from low to high.
+
+For descending:
+```
+employees.sort(
+    Comparator.comparingInt((Employee e) -> e.salary).reversed()
+);
+```
+```
+Collections.sort(list) → Sorts list using natural ordering.
+list.sort(...) → Modern way to sort a List.
+Natural ordering → Numbers ascending, Strings alphabetical, etc.
+Comparator → Used when we need custom sorting logic.
+reverseOrder() → Descending order.
+Custom objects → Usually sort using Comparator.
+```
+
+# How do you sort elements in an ArrayList using comparable interface?
+To sort an ArrayList using Comparable, I make the element class implement Comparable<T> and provide the natural ordering in the compareTo() method. Then I can use Collections.sort() or list.sort(null) to sort the list.
+
+For example, if I want Employee objects to be sorted by employee ID, I implement compareTo() using the ID. compareTo() returns a negative value when the current object should come before the other object, zero when they are equal for ordering, and a positive value when it should come after.
+
+I use Comparable when the class itself has a clear default or natural ordering. If I need different sorting rules, I would generally use a Comparator instead.
+```
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+class Employee implements Comparable<Employee> {
+
+    int id;
+    String name;
+
+    Employee(int id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
+    @Override
+    public int compareTo(Employee other) {
+        return Integer.compare(this.id, other.id);
+    }
+
+    @Override
+    public String toString() {
+        return id + " - " + name;
+    }
+}
+```
+```
+List<Employee> employees = new ArrayList<>();
+
+employees.add(new Employee(103, "Aman"));
+employees.add(new Employee(101, "Ritesh"));
+employees.add(new Employee(102, "Rahul"));
+
+Collections.sort(employees);
+
+System.out.println(employees); // [101 - Ritesh, 102 - Rahul, 103 - Aman]
+```
+```
+Comparable → Defines a class's natural/default sorting order.
+implements Comparable<Employee> → Class becomes comparable to another Employee.
+compareTo() → Defines how two objects should be ordered.
+negative → this comes before other.
+0 → equal for ordering.
+positive → this comes after other.
+Collections.sort(list) → Uses Comparable's natural ordering when no Comparator is supplied.
+list.sort(null) → Also uses natural ordering.
+Comparable → Best when the class has one clear natural ordering.
+Comparator → Better when multiple/custom sorting rules are needed.
+Integer.compare() → Prefer it over subtraction for integer comparison.
+```
+# How do you sort elements in an ArrayList using comparator interface?
+Comparator is used when I want to define custom sorting logic separately from the class being sorted. I create a Comparator<T> that compares two objects and then pass it to Collections.sort() or the list's sort() method.
+
+For example, if I have an Employee list, I can create one comparator to sort by salary, another by name, and another by ID. This is more flexible than Comparable, where the class itself defines one natural ordering.
+
+In modern Java, I would commonly use methods like Comparator.comparing(), comparingInt(), or comparingDouble() to make these comparators concise and readable.
+```
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+class Employee {
+    int id;
+    String name;
+    double salary;
+
+    Employee(int id, String name, double salary) {
+        this.id = id;
+        this.name = name;
+        this.salary = salary;
+    }
+
+    @Override
+    public String toString() {
+        return id + " - " + name + " - " + salary;
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+
+        List<Employee> employees = new ArrayList<>();
+
+        employees.add(new Employee(103, "Aman", 50000));
+        employees.add(new Employee(101, "Ritesh", 70000));
+        employees.add(new Employee(102, "Rahul", 60000));
+
+        employees.sort(
+            Comparator.comparingDouble(e -> e.salary)
+        );
+
+        System.out.println(employees);
+        // 103 - Aman - 50000.0
+        // 102 - Rahul - 60000.0
+        // 101 - Ritesh - 70000.0
+    }
+}
+```
+```
+Comparator → Defines custom sorting logic outside the class.
+compare() → Compares two objects in a Comparator implementation.
+list.sort(comparator) → Sorts the list using that rule.
+Comparator.comparing() → Sorts using an object's field/property.
+reversed() → Reverses the sorting order.
+thenComparing() → Adds a second sorting condition.
+Comparable → One natural/default order inside the class.
+Comparator → Multiple/custom orders outside the class.
+```
+
+# What is vector class? How is it different from an ArrayList?
+Vector is a legacy, growable-array implementation of the List interface, so functionally it is very similar to ArrayList. The main difference is that Vector provides synchronization on its methods, while ArrayList is not synchronized. Because of that synchronization, Vector can have more overhead and is generally not the preferred choice in modern Java applications.
+
+If I need a normal list, I would usually use ArrayList. If I need thread-safe access, I would choose the concurrency approach based on the requirement rather than automatically using Vector, for example CopyOnWriteArrayList for read-heavy scenarios or a synchronized wrapper where appropriate.
+
+# What is linkedList? What interfaces does it implement? How is it different from an ArrayList?
+LinkedList is a doubly linked list implementation of the List and Deque interfaces. It stores elements as nodes, where each node keeps references to the previous and next node. Because of this, adding or removing elements at the beginning or end is efficient, and it can also be used as a queue or double-ended queue.
+
+The main difference from ArrayList is the underlying data structure. ArrayList uses a dynamic array, so it provides fast index-based access, typically O(1). LinkedList has to traverse the nodes to reach an index, so index-based access is O(n). LinkedList also has more memory overhead because each node stores additional links.
+
+In practice, I would generally choose ArrayList as the default List implementation and use LinkedList when I specifically need efficient deque operations or have a use case that benefits from linked-node insertion and removal.
+
+# Can you briefly explain about the Set interface?
+Set is an interface in the Java Collections Framework that is used when we need a collection of unique elements. Unlike List, it does not allow duplicates and it doesn't provide index-based access. The commonly used implementations are HashSet, LinkedHashSet, and TreeSet. HashSet is generally used when we only care about uniqueness, LinkedHashSet when we also want to maintain insertion order, and TreeSet when we want the elements to remain sorted.
+```
+Set → Stores unique elements; duplicates are not allowed.
+No index → Cannot use get(index) like List.
+HashSet → Unique elements, no guaranteed order.
+LinkedHashSet → Unique + insertion order.
+TreeSet → Unique + sorted order.
+Set vs List → Set focuses on uniqueness; List allows duplicates and supports index access.
+```
+
+# What are the important interfaces related to the Set interface?
+The main interfaces related to Set are Set, SortedSet, and NavigableSet. Set provides the basic contract for unique elements. SortedSet extends it when we need the elements to remain sorted, and NavigableSet extends SortedSet with methods that help us find elements relative to a given value, such as the nearest lower or higher element.
+
+The common implementation we see for sorted and navigable sets is TreeSet, while HashSet is commonly used when we only need uniqueness without sorted order.
+```
+Set → Unique elements.
+SortedSet → Unique + sorted order.
+NavigableSet → SortedSet + navigation methods.
+Hierarchy → Set → SortedSet → NavigableSet.
+HashSet → Common Set implementation; no guaranteed order.
+TreeSet → Implements NavigableSet; keeps elements sorted.
+lower() → Strictly smaller element.
+higher() → Strictly larger element.
+floor() → Smaller than or equal to given value.
+ceiling() → Greater than or equal to given value.
+```
+
+# What is the difference between Set and sortedSet interfaces?
+Both Set and SortedSet don't allow duplicate elements. The difference is that Set doesn't define any sorting requirement, while SortedSet maintains its elements according to a defined sort order. SortedSet also provides additional methods for working with the sorted range, such as getting the first and last elements or creating subsets.
+
+For example, I would use HashSet when I only care about uniqueness, while I would use TreeSet, which implements SortedSet, when I need the unique elements to remain sorted.
+```
+Set → Unique elements; no sorting requirement.
+SortedSet → Unique + sorted order.
+SortedSet extends Set.
+HashSet → Common choice when only uniqueness matters.
+TreeSet → Implements SortedSet/NavigableSet and keeps elements sorted.
+SortedSet → Adds sorted-set operations such as first(), last(), headSet(), tailSet(), subSet().
+```
+
+# Can you give examples of classes that implement the Set interface?
+The most commonly used classes that implement Set are HashSet, LinkedHashSet, and TreeSet. HashSet is used when I mainly need unique elements without depending on a particular order. LinkedHashSet maintains insertion order along with uniqueness, and TreeSet keeps the unique elements sorted. So the choice depends on whether I need just uniqueness, uniqueness with insertion order, or uniqueness with sorted order.
+
+```
+HashSet → Unique elements; no guaranteed order.
+LinkedHashSet → Unique + insertion order.
+TreeSet → Unique + sorted order.
+TreeSet → Implements NavigableSet → SortedSet → Set.
+```
+
+# What is a HashSet?
+HashSet is a Set implementation that stores unique elements using hashing. It doesn't maintain any guaranteed insertion or sorted order, but it provides efficient average-time operations for adding, removing, and checking elements. Internally, it uses hashCode() to find the appropriate location and equals() to check whether an equivalent element already exists.
+
+I would use HashSet when I mainly need uniqueness and fast membership checks, and I don't need the elements in any particular order. If I need insertion order, I would consider LinkedHashSet, and if I need sorted elements, I would consider TreeSet.
+```
+HashSet → Set implementation used for unique elements.
+Duplicates → Not allowed.
+Order → No guaranteed insertion or sorted order.
+Internal mechanism → Hashing.
+hashCode() → Helps find the relevant location.
+equals() → Checks logical equality when needed.
+add()/remove()/contains() → O(1) average, assuming good hashing.
+Null → HashSet permits one null element.
+Thread safety → Not synchronized by default.
+Use case → Uniqueness + fast membership checking.
+LinkedHashSet → Use when insertion order is needed.
+TreeSet → Use when sorted order is needed.
+```
+
+# What is a linkedHashSet? How is different from a HashSet?
+LinkedHashSet is a Set implementation that uses hashing to store unique elements, similar to HashSet, but it also maintains the insertion order of the elements. HashSet doesn't guarantee any iteration order.
+
+So, I would use HashSet when I only care about uniqueness, and LinkedHashSet when I need uniqueness while also preserving the order in which elements were added. LinkedHashSet has some additional memory and performance overhead because it maintains the linked structure needed to preserve that order.
+```
+LinkedHashSet → Set implementation with unique elements + insertion order.
+HashSet → Unique elements; no guaranteed iteration order.
+Both → Use hashing; average O(1) add/remove/contains.
+LinkedHashSet → Maintains order using additional linked structure.
+Memory → LinkedHashSet uses more memory than HashSet.
+Use HashSet → When order doesn't matter.
+Use LinkedHashSet → When insertion order matters.
+Use TreeSet → When sorted order is required.
+```
+```
+HashSet       = UNIQUE
+LinkedHashSet = UNIQUE + INSERTION ORDER
+TreeSet       = UNIQUE + SORTED
+```
+
+# What is a TreeSet? How is different from a HashSet?
+TreeSet is a Set implementation that stores unique elements and keeps them sorted. Unlike HashSet, which mainly gives us fast uniqueness checks without guaranteeing an order, TreeSet maintains elements according to their natural ordering or a supplied Comparator.
+
+Because TreeSet has to maintain sorted order, its basic operations like add(), remove(), and contains() are generally O(log n), while HashSet provides O(1) average-time performance for those operations under normal hashing conditions. TreeSet also implements NavigableSet, so we get operations such as finding the nearest lower or higher element.
+
+So I would choose HashSet when I mainly need uniqueness and fast lookup, and TreeSet when I need uniqueness together with sorted data and navigation operations.
+```
+TreeSet → Set implementation that keeps unique elements sorted.
+HashSet → Unique elements; no guaranteed order.
+TreeSet → Implements NavigableSet → SortedSet → Set.
+Ordering → Natural ordering or Comparator.
+Performance → TreeSet O(log n) for add/remove/contains; HashSet O(1) average.
+Navigation → lower(), higher(), floor(), ceiling().
+Null → HashSet allows one null; TreeSet generally doesn't allow null with natural ordering.
+Use HashSet → Uniqueness + fast average lookup.
+Use TreeSet → Uniqueness + sorted order + navigation.
+```
+
+# Can you give examples of implementations of navigableSet?
+The two important implementations of NavigableSet are TreeSet and ConcurrentSkipListSet. TreeSet is the common choice when I need a sorted set with navigation operations like floor(), ceiling(), lower(), and higher(). ConcurrentSkipListSet provides similar sorted and navigable behavior but is designed for concurrent access by multiple threads.
+
+So for normal use, I would generally choose TreeSet, while ConcurrentSkipListSet is more appropriate when I specifically need a thread-safe sorted set.
+```
+NavigableSet → Sorted set + navigation methods.
+TreeSet → Common implementation; sorted + unique + navigation.
+ConcurrentSkipListSet → Thread-safe sorted + navigable set.
+TreeSet → Use for normal single-threaded/non-concurrent use.
+ConcurrentSkipListSet → Use when concurrent access is required.
+Navigation → lower(), higher(), floor(), ceiling().
+```
+
+# Explain briefly about Queue interface?
+`Queue` is an interface in the Java Collections Framework that represents a collection where elements are typically processed in a particular order. The common queue behavior is FIFO, where the element added first is processed first.
+
+The main methods I use are `offer()` or `add()` to insert, `poll()` or `remove()` to remove the head, and `peek()` or `element()` to check the head without removing it.
+
+Common implementations include `LinkedList`, `PriorityQueue`, and `ArrayDeque`. One important point is that Queue doesn't always mean FIFO—for example, `PriorityQueue` processes elements based on priority or natural ordering.
+```
+Queue → Used when elements need ordered processing.
+Common behavior → FIFO.
+add()/offer() → Add element.
+poll()/remove() → Remove and return head.
+peek()/element() → View head without removing.
+LinkedList → Can be used as Queue.
+PriorityQueue → Processes by priority/natural order, not simple FIFO.
+ArrayDeque → Efficient general-purpose queue/deque.
+```
+
+# What are the important interfaces related to the Queue interface?
+The main interfaces related to Queue are Deque and BlockingQueue. Deque extends Queue and allows elements to be added or removed from both ends, so it can be used as both a queue and a stack. BlockingQueue is part of the concurrent collections and is designed for producer-consumer scenarios where threads may need to wait when the queue is empty or full.
+
+For normal queue operations, implementations like ArrayDeque are common, while BlockingQueue implementations such as ArrayBlockingQueue or LinkedBlockingQueue are useful when multiple threads are involved.
+```
+Queue → General interface for ordered processing.
+Deque → Queue + operations at both ends.
+BlockingQueue → Queue designed for multithreaded producer-consumer use.
+Deque implementation → ArrayDeque.
+BlockingQueue implementations → ArrayBlockingQueue, LinkedBlockingQueue, PriorityBlockingQueue.
+Queue ≠ always FIFO → PriorityQueue is an example.
+```
+```
+Queue          → Process elements
+Deque          → Process from both ends
+BlockingQueue  → Queue + thread waiting
+```
+
+# Explain about the Deque interface?
+Deque stands for Double Ended Queue and extends the Queue interface. It allows us to insert and remove elements from both ends of the collection. Because of that, it can be used both as a normal queue and as a stack.
+
+For example, I can use addFirst() and removeFirst() to work from the front, or addLast() and removeLast() to work from the rear. ArrayDeque is generally the preferred implementation for normal queue or stack-like operations because it is efficient and doesn't have the overhead of linked nodes.
+```
+Deque → Double Ended Queue; extends Queue.
+Front + rear → Can add/remove from both ends.
+Queue use → addLast() + removeFirst().
+Stack use → addFirst() + removeFirst().
+Important methods → addFirst(), addLast(), removeFirst(), removeLast(), peekFirst(), peekLast().
+Implementations → ArrayDeque, LinkedList.
+Preferred general implementation → ArrayDeque.
+```
+
+# Explain the BlockingQueue interface?
+BlockingQueue is a thread-safe queue designed mainly for communication between multiple threads. Its main feature is that certain operations can block when the queue is full or empty. For example, put() waits if a bounded queue is full, and take() waits if the queue is empty.
+
+It is commonly used in producer-consumer scenarios, where one or more threads produce tasks or data and other threads consume them. Common implementations include ArrayBlockingQueue, LinkedBlockingQueue, and PriorityBlockingQueue.
+
+I would use a BlockingQueue when I need thread-safe coordination between producers and consumers rather than manually managing wait() and notify() logic.
+
+Example:
+```
+BlockingQueue<Integer> queue = new ArrayBlockingQueue<>(10);
+
+queue.put(100);        // may wait if full
+int value = queue.take(); // may wait if empty
+```
+
+**Producer-Consumer Example**
+```
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+
+public class Main {
+
+    public static void main(String[] args) {
+
+        BlockingQueue<String> queue =
+                new ArrayBlockingQueue<>(2);
+
+        Thread producer = new Thread(() -> {
+            try {
+                queue.put("Task 1");
+                queue.put("Task 2");
+                queue.put("Task 3");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        Thread consumer = new Thread(() -> {
+            try {
+                Thread.sleep(2000);
+
+                System.out.println(queue.take());
+                System.out.println(queue.take());
+                System.out.println(queue.take());
+
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+
+        producer.start();
+        consumer.start();
+    }
+}
+```
+
+The queue has capacity 2.
+
+So when the producer tries to add "Task 3":
+```
+Task 1 → queue
+Task 2 → queue
+Task 3 → producer waits
+             ↓
+       consumer takes one
+             ↓
+       space becomes available
+             ↓
+       producer continues
+```
+That's the main idea behind BlockingQueue.
+
+# What is a priorityQueue?
+PriorityQueue is a Queue implementation where elements are processed according to their priority rather than insertion order. By default, the smallest element according to natural ordering has the highest priority, but we can provide a Comparator to define a different priority.
+
+For example, if I add 30, 10, and 20, calling poll() returns 10 first, then 20, then 30. Internally, it uses a priority-heap structure, which makes retrieving the highest-priority element efficient. I would use PriorityQueue when the next element to process should be based on priority rather than simple FIFO order.
+```
+PriorityQueue<Integer> queue = new PriorityQueue<>();
+
+queue.add(30);
+queue.add(10);
+queue.add(20);
+
+System.out.println(queue.poll()); // 10
+System.out.println(queue.poll()); // 20
+System.out.println(queue.poll()); // 30
+```
+
+**Example: Custom Priority**
+
+Suppose we have tasks:
+```
+class Task {
+    String name;
+    int priority;
+
+    Task(String name, int priority) {
+        this.name = name;
+        this.priority = priority;
+    }
+}
+```
+We can make a higher number mean higher priority:
+```
+PriorityQueue<Task> tasks =
+        new PriorityQueue<>(
+            Comparator.comparingInt((Task t) -> t.priority)
+                      .reversed()
+        );
+
+tasks.add(new Task("Email", 1));
+tasks.add(new Task("Production issue", 10));
+tasks.add(new Task("Report", 5));
+
+Task next = tasks.poll();
+
+System.out.println(next.name); // Production issue because it has the highest priority.
+```
+
+# Can you give example implementations of the BlockingQueue interface?
+Some important implementations of BlockingQueue are ArrayBlockingQueue, LinkedBlockingQueue, PriorityBlockingQueue, DelayQueue, SynchronousQueue, and LinkedTransferQueue.
+
+ArrayBlockingQueue is useful when I need a fixed-size bounded queue, LinkedBlockingQueue is a general-purpose blocking queue, and PriorityBlockingQueue is useful when elements need to be processed by priority. DelayQueue is used when elements should become available only after a delay, while SynchronousQueue is useful for direct handoff between producer and consumer threads.
+
+The choice depends on how the producer-consumer communication needs to work.
+```
+ArrayBlockingQueue → Fixed-size bounded queue.
+LinkedBlockingQueue → General-purpose blocking queue; can be bounded.
+PriorityBlockingQueue → Thread-safe priority-based queue.
+DelayQueue → Element available only after its delay expires.
+SynchronousQueue → No capacity; direct producer → consumer handoff.
+LinkedTransferQueue → Supports blocking + direct transfer to consumers.
+```
+```
+ArrayBlockingQueue     → Fixed capacity
+LinkedBlockingQueue    → General-purpose
+PriorityBlockingQueue  → Priority
+DelayQueue              → Delay
+SynchronousQueue        → Direct handoff
+LinkedTransferQueue    → Transfer between threads
+```
+
+# Can you briefly explain about the Map interface?
+Map is an interface in the Java Collections Framework used to store data as key-value pairs. Each key must be unique, while values can be duplicated. We use the key to retrieve, update, or remove its associated value.
+
+Common implementations are HashMap when we mainly need fast key-based lookup, LinkedHashMap when we also want to maintain insertion order, and TreeMap when we need the keys to remain sorted. Map is part of the Collections Framework, but it doesn't extend the Collection interface because it stores mappings rather than individual elements.
+```
+Map → Stores key-value pairs.
+Key → Must be unique.
+Value → Duplicates allowed.
+put(key, value) → Adds/updates mapping.
+get(key) → Retrieves value using key.
+HashMap → Fast general-purpose map; no guaranteed order.
+LinkedHashMap → Maintains insertion order.
+TreeMap → Keeps keys sorted.
+ConcurrentHashMap → Designed for concurrent access.
+Map ≠ Collection → Separate hierarchy inside Collections Framework.
+```
+
+# What is difference between Map and sortedMap?
+Map is used to store key-value pairs without imposing a general ordering requirement on the keys, while SortedMap extends Map and maintains its keys in sorted order. The sorting is normally based on the key's natural ordering, or we can provide a comparator.
+
+SortedMap also provides additional methods for working with ranges of keys, such as firstKey(), lastKey(), headMap(), tailMap(), and subMap(). A common implementation is TreeMap. So I would use a regular Map, such as HashMap, when key ordering doesn't matter, and a sorted map such as TreeMap when I need the keys to remain sorted.
+```
+Map → Key-value pairs; no general key-order requirement.
+SortedMap → Map + keys maintained in sorted order.
+SortedMap extends Map.
+SortedMap → Sorts KEYS, not values.
+Ordering → Natural key order or Comparator.
+Common Map → HashMap.
+Common SortedMap implementation → TreeMap.
+Extra methods → firstKey(), lastKey(), headMap(), tailMap(), subMap().
+```
+
+# What is a HashMap?
+HashMap is a hash-based implementation of the Map interface that stores data as key-value pairs. Each key is unique, and we use the key to quickly access its associated value. Internally, it uses the key's hashCode() to find the appropriate bucket and uses equals() to identify the matching key when necessary.
+
+put(), get(), and remove() are generally O(1) on average, although performance can degrade in collision-heavy situations. HashMap doesn't maintain insertion or sorted order. I would typically use it when I need fast key-based lookup and don't care about the order of the entries.
+```
+HashMap → Hash-based Map implementation.
+Data → Key-value pairs.
+Key → Must be unique.
+Value → Duplicates allowed.
+Order → No guaranteed order.
+hashCode() → Helps determine the bucket/location.
+equals() → Checks whether keys are logically equal when needed.
+put/get/remove → O(1) average under normal hashing.
+null → One null key + multiple null values allowed.
+Duplicate key → New value replaces old value.
+Use case → Fast key-based lookup.
+```
+
+# What are the different methods in a Hash Map?
+The commonly used HashMap methods are put() to add or update a key-value pair, get() to retrieve a value using a key, and remove() to remove an entry. We also have containsKey() and containsValue() to check whether a key or value exists, size() and isEmpty() to check the map's state, and clear() to remove all entries.
+
+For iterating over a map, I commonly use keySet(), values(), or entrySet(). entrySet() is especially useful when I need both the key and value. There are also useful methods such as getOrDefault() and putIfAbsent() for handling common cases without writing extra checks.
+```
+put(k,v) → Add or update a key-value pair.
+get(k) → Get value for a key.
+remove(k) → Remove entry by key.
+containsKey(k) → Check whether key exists.
+containsValue(v) → Check whether value exists.
+size() → Number of entries.
+isEmpty() → Check whether map is empty.
+clear() → Remove all entries.
+keySet() → Get all keys.
+values() → Get all values.
+entrySet() → Get key-value entries.
+getOrDefault() → Return value or a default when key is missing.
+putIfAbsent() → Add only if key doesn't already exist.
+replace() → Replace value for an existing key.
+```
+
+# What is a TreeMap? How is different from a HashMap?
+TreeMap is a Map implementation that keeps its keys sorted. Internally, it uses a Red-Black tree, so operations like put(), get(), and remove() take O(log n) time.
+
+The main difference from HashMap is that HashMap uses hashing and doesn't guarantee any ordering, while TreeMap maintains sorted order of the keys. HashMap generally provides O(1) average-time lookup, whereas TreeMap provides O(log n) operations.
+
+So, if I mainly need fast key-based lookup and don't care about order, I'd use HashMap. If I need the keys to stay sorted or I need operations based on key ranges, I'd choose TreeMap.
+```
+TreeMap → Map implementation that keeps keys sorted.
+Internal structure → Red-Black tree.
+HashMap → Hash-based; no guaranteed order.
+TreeMap → Sorted keys.
+HashMap operations → O(1) average.
+TreeMap operations → O(log n).
+TreeMap → Implements NavigableMap → SortedMap → Map.
+Comparator → Can define custom key ordering.
+TreeMap → Useful for sorted keys and range/navigation operations.
+HashMap → Usually better when only fast key lookup is needed.
+```
+
+# Can you give an example of implementation of navigableMap interface?
+The most commonly used implementation of NavigableMap is TreeMap. It keeps keys sorted and provides navigation methods such as lowerKey(), higherKey(), floorKey(), and ceilingKey(). For example, if I have keys 10, 20, and 30, I can use these methods to find the nearest key relative to a given value.
+
+Another implementation is ConcurrentSkipListMap, which provides similar sorted and navigable behavior but is designed for concurrent access. So I would normally use TreeMap for regular use and ConcurrentSkipListMap when I specifically need concurrent access.
+```
+NavigableMap → Sorted map + navigation methods.
+TreeMap → Main/general-purpose implementation.
+ConcurrentSkipListMap → Thread-safe implementation for concurrent use.
+lowerKey(k) → Greatest key strictly smaller than k.
+higherKey(k) → Smallest key strictly greater than k.
+floorKey(k) → Greatest key ≤ k.
+ceilingKey(k) → Smallest key ≥ k.
+Hierarchy → Map → SortedMap → NavigableMap.
+```
+
+# What are the static methods present in the collections class?
+Collections is a utility class that provides static methods for performing common operations on collections. Some of the important methods are sort() for sorting, binarySearch() for searching, reverse() and shuffle() for changing order, min() and max() for finding values, and methods like frequency(), swap(), and replaceAll() for other common operations.
+
+It also provides wrapper methods such as synchronizedList() and unmodifiableList() when we need a synchronized or read-only view of a collection. These are utility methods, so we call them directly using Collections.methodName() rather than creating a Collections object.
+```
+| Method               | Use                                      |
+| -------------------- | ---------------------------------------- |
+| `sort()`             | Sorts a list                             |
+| `binarySearch()`     | Searches a sorted list                   |
+| `reverse()`          | Reverses a list                          |
+| `shuffle()`          | Randomly rearranges elements             |
+| `min()`              | Finds minimum element                    |
+| `max()`              | Finds maximum element                    |
+| `frequency()`        | Counts occurrences of an element         |
+| `swap()`             | Swaps two positions                      |
+| `rotate()`           | Rotates elements                         |
+| `fill()`             | Replaces all elements with a value       |
+| `replaceAll()`       | Replaces matching elements               |
+| `copy()`             | Copies elements from one list to another |
+| `unmodifiableList()` | Creates an unmodifiable view             |
+| `synchronizedList()` | Creates a synchronized wrapper           |
+| `singletonList()`    | Creates a list containing one element    |
+| `emptyList()`        | Returns an empty immutable list          |
+```
+
+# What is the difference between synchronized and concurrent collections in Java?
+Both synchronized and concurrent collections provide thread-safe access, but they are designed differently. Synchronized collections generally use synchronization to protect operations, which can cause more contention because threads may have to wait for the same lock. Concurrent collections are specifically designed for multithreaded access and use more scalable techniques so multiple threads can work with the collection with less blocking.
+
+For example, Collections.synchronizedList() provides a synchronized wrapper around a normal list, while CopyOnWriteArrayList and ConcurrentHashMap are concurrent collection implementations designed specifically for concurrent workloads. In practice, I would choose a concurrent collection when I expect significant concurrent access and need better scalability, rather than simply synchronizing a normal collection.
+
+```
+Synchronized collection → Thread-safe through synchronization.
+Concurrent collection   → Thread-safe and designed for concurrent access/scalability.
+Synchronized wrapper    → Collections.synchronizedList(), synchronizedMap(), etc.
+Concurrent examples     → ConcurrentHashMap, CopyOnWriteArrayList, BlockingQueue.
+Main problem with sync  → More lock contention when many threads access the collection.
+Concurrent advantage    → Better scalability under concurrent workloads.
+Iteration                → Synchronized wrappers may require external synchronization.
+Concurrent iterators     → Have their own concurrency behavior, often weakly consistent.
+Concurrent ≠ lock-free    → Some concurrent collections still use locks internally.
+```
+
+# Explain about the new concurrent collections in Java?
+Java introduced the concurrent collection classes in the java.util.concurrent package to handle collections safely when multiple threads access them at the same time. Important examples are ConcurrentHashMap, CopyOnWriteArrayList, ConcurrentLinkedQueue, BlockingQueue, ConcurrentSkipListMap, and ConcurrentSkipListSet.
+
+Each one is designed for a different concurrent use case. ConcurrentHashMap is used for concurrent key-value operations, CopyOnWriteArrayList is useful when reads are much more frequent than writes, BlockingQueue is useful for producer-consumer scenarios, and the skip-list collections provide thread-safe sorted maps and sets.
+
+Compared with simply synchronizing a normal collection, these classes are designed specifically for concurrent access and can provide better scalability depending on the workload.
+```
+Concurrent collections → Thread-safe collections designed for multithreaded access.
+
+ConcurrentHashMap → Concurrent key-value operations.
+CopyOnWriteArrayList → Many reads, few writes.
+CopyOnWriteArraySet → Many reads, few writes + uniqueness.
+ConcurrentLinkedQueue → Non-blocking concurrent queue.
+ConcurrentLinkedDeque → Non-blocking concurrent deque.
+BlockingQueue → Producer-consumer; operations can wait/block.
+ConcurrentSkipListMap → Concurrent + sorted Map.
+ConcurrentSkipListSet → Concurrent + sorted Set.
+Package → java.util.concurrent.
+```
+- Concurrent collections aren't just "synchronized versions" of normal collections; they are specifically designed to allow multiple threads to work safely and, where possible, efficiently at the same time.
+
+# Explain about copyonwrite concurrent collections approach?
+Copy-on-Write is a concurrency approach where a collection creates a new copy of its underlying data whenever a write happens, instead of modifying the existing data in place. The main advantage is that reads can happen without the same locking overhead, making it useful when reads are much more frequent than writes.
+
+CopyOnWriteArrayList is a common example. Its iterators also work on a snapshot of the collection, so they can safely iterate even if another thread modifies the list. The trade-off is that every write requires copying the underlying array, so it can be expensive in terms of time and memory.
+
+So I would use Copy-on-Write for relatively small collections that are read frequently and updated rarely, such as listener lists or configuration-style data. I would avoid it for write-heavy collections.
+```
+Copy-on-Write → Create a new copy whenever the collection is modified.
+Main example → CopyOnWriteArrayList.
+Reads → Fast and don't require the same write locking.
+Writes → More expensive because data is copied.
+Iterator → Uses a snapshot of the collection.
+Concurrent modification → Iterator doesn't fail just because another thread updates the collection.
+Best use → Many reads + very few writes.
+Bad use → Write-heavy collections.
+Trade-off → More memory and more expensive writes.
+```
+
+# What is compareandswap approach?
+Compare-and-Swap, or CAS, is a synchronization technique where a thread updates a value only if the current value is still equal to an expected value. If another thread has changed the value in the meantime, the CAS operation fails instead of overwriting it.
+
+CAS is commonly used in Java's atomic classes such as AtomicInteger, AtomicLong, and AtomicReference. It allows certain updates to be performed without traditional locking, which can reduce thread contention and improve scalability for suitable workloads.
+
+For example, compareAndSet(expected, update) changes the value only when the current value matches expected. If it doesn't match, the operation returns false, and the code can retry or handle the failure.
+```
+CAS → Update value only if it still equals the expected value.
+compareAndSet(expected, update) → Performs the CAS operation.
+Success → Expected == current value → update happens.
+Failure → Expected != current value → update doesn't happen.
+CAS → Common foundation for atomic/concurrent operations.
+Java examples → AtomicInteger, AtomicLong, AtomicReference.
+CAS vs synchronized → CAS is lock-free at the operation level; synchronized uses locking.
+CAS ≠ always faster → Heavy contention can cause repeated retries.
+CAS → Good for small atomic state updates.
+```
+
+# What is a lock? How is it different from using synchronized approach?
+A lock is a synchronization mechanism used to control access to shared resources when multiple threads are running. Java provides the Lock interface, commonly implemented by ReentrantLock, which gives us explicit control over acquiring and releasing the lock.
+
+synchronized is simpler and built into the Java language. When a thread enters a synchronized method or block, it acquires the object's intrinsic lock, and Java automatically releases it when the block or method exits. With Lock, we explicitly call lock() and unlock(), but in return we get more control, such as tryLock(), timed locking, interruptible locking, fairness options, and multiple Condition objects.
+
+So I would normally use synchronized when simple mutual exclusion is enough, and choose Lock when I specifically need those additional locking features or more complex coordination.
+```
+Lock → Explicit synchronization mechanism from java.util.concurrent.locks.
+ReentrantLock → Common implementation of Lock.
+synchronized → Built-in Java locking mechanism using an object's intrinsic monitor.
+synchronized → Lock acquisition/release handled automatically.
+Lock → Must manually call lock() and unlock().
+tryLock() → Try to acquire lock without waiting indefinitely.
+Timed tryLock() → Wait for a specified amount of time.
+lockInterruptibly() → Allows waiting thread to be interrupted.
+Condition → More flexible waiting/signaling with Lock.
+synchronized → Prefer for simple locking.
+Lock → Use when advanced locking control is actually needed.
+```
+
+# What is initial capacity of a Java collection?
+Initial capacity is the amount of internal storage a collection is initially prepared to use before it needs to resize or expand. It is implementation-specific, so there isn't one default capacity for every Java collection. For example, an ArrayList can be created with an initial capacity such as new ArrayList<>(100). Setting an appropriate capacity can reduce the number of resizing and copying operations when we already know roughly how many elements the collection will hold.
+
+Also, initial capacity and size are different: size is the number of elements currently stored, while capacity refers to the available internal storage.
+```
+Initial capacity → Internal storage prepared before growth/resizing.
+No universal default → Capacity depends on the collection implementation.
+ArrayList → Commonly described as capacity 10; modern Java allocates lazily.
+HashMap → Default initial capacity 16.
+Capacity ≠ size → Capacity = storage; size = current elements.
+Why specify capacity? → Reduce resizing/copying when expected size is known.
+new ArrayList<>(100) → Creates a list with initial capacity for about 100 elements.
+```
+
+# What is load factor?
+Load factor is the value that determines how full a hash-based collection, such as HashMap, can become before it resizes. The default load factor of HashMap is 0.75, so for an initial capacity of 16, the resize threshold is 16 × 0.75 = 12 entries. Once the threshold is reached, the map increases its internal capacity and redistributes the entries.
+
+A higher load factor means better memory usage but potentially more collisions, while a lower load factor means fewer collisions but more memory usage. So 0.75 is a commonly used balance between memory and lookup performance.
+```
+Load factor → Decides how full a hash table can become before resizing.
+HashMap default → 0.75.
+Formula → threshold = capacity × load factor.
+Capacity 16 + load factor 0.75 → threshold 12.
+Reach threshold → HashMap resizes and redistributes entries.
+Higher load factor → Better memory usage, potentially more collisions.
+Lower load factor → More memory, potentially fewer collisions.
+Load factor → Mainly relevant to hash-based collections.
+```
+
+# When does a Java collection throw UnsupportedOperationException?
+UnsupportedOperationException is thrown when we perform a collection operation that the particular collection or view does not support, most commonly a modification operation. For example, Arrays.asList() gives a fixed-size list, so add() and remove() throw UnsupportedOperationException, although set() is allowed. Similarly, Collections.unmodifiableList() or List.of() provides an unmodifiable collection, so modification operations are unsupported.
+
+So I don't assume every List or Collection supports every modification method; the actual implementation determines which operations are supported.
+```
+UnsupportedOperationException → Operation exists in the API but isn't supported by that collection.
+Common case → Calling add/remove/set on an unmodifiable or fixed-size collection.
+Arrays.asList() → Fixed size; add/remove unsupported, set supported.
+List.of() → Unmodifiable; modification operations unsupported.
+Collections.unmodifiableList() → Modification through the returned view unsupported.
+Reason → Collection implementation decides which optional operations it supports.
+Runtime exception → Compiler allows the method call; actual collection rejects it.
+```
+
+# What is difference between fail-safe and fail-fast iterators?
+A fail-fast iterator detects structural modification during iteration and typically throws ConcurrentModificationException, as we commonly see with collections like ArrayList. This helps detect unsafe modification during traversal, although the behavior is best-effort.
+
+The term fail-safe is commonly used for iterators that can continue even when the underlying collection is modified concurrently, but technically Java uses more precise terms depending on the collection. For example, CopyOnWriteArrayList provides snapshot-style iteration, while ConcurrentHashMap provides weakly consistent iterators. These are designed for concurrent access rather than throwing ConcurrentModificationException for every concurrent modification.
+```
+Fail-fast → Unexpected structural modification during iteration → typically ConcurrentModificationException.
+Fail-fast example → ArrayList, HashSet, HashMap iterators.
+Fail-fast → Best-effort detection, not a correctness guarantee.
+"Fail-safe" → Common interview term, not an official Java category.
+CopyOnWriteArrayList → Snapshot iterator; modifications don't affect current iterator.
+ConcurrentHashMap → Weakly consistent iterator; may reflect some concurrent changes.
+Iterator.remove() → Safe way to remove during iteration when supported.
+Thread-safe ≠ fail-safe → They are different concepts.
+```
+
+# What are atomic operations in Java?
+An atomic operation is an operation that is performed as one indivisible unit, so another thread cannot observe it in a partially completed state. Atomic operations are important when multiple threads access shared data.
+
+For example, count++ is not atomic because it involves reading, modifying, and writing the value separately. If multiple threads execute it at the same time, updates can be lost. Java provides atomic classes such as AtomicInteger, AtomicLong, and AtomicReference, which provide operations like incrementAndGet() and compareAndSet() for thread-safe updates without requiring a traditional synchronized block for each operation.
+```
+Atomic operation → Happens as one indivisible step.
+count++ → NOT atomic; read + modify + write.
+AtomicInteger → Provides atomic integer operations.
+incrementAndGet() → Atomic increment.
+compareAndSet() → Update only if current value equals expected value.
+volatile → Visibility/order, NOT general atomicity.
+synchronized → Lock-based way to protect operations.
+Atomic classes → Commonly use CAS internally.
+Use atomic operations → When multiple threads update shared state.
+```
+
+# What is BlockingQueue in Java?
+BlockingQueue is a thread-safe queue designed mainly for communication between producer and consumer threads. Its main feature is that operations can wait when the queue cannot immediately perform them. For example, take() waits when the queue is empty, and put() waits when a bounded queue is full.
+
+It's commonly used in producer-consumer scenarios because it handles the waiting and thread coordination for us instead of requiring us to manually manage wait() and notify(). Common implementations include ArrayBlockingQueue, LinkedBlockingQueue, and PriorityBlockingQueue.
+
+**Simple Producer-Consumer Example**
+```
+BlockingQueue<String> queue = new ArrayBlockingQueue<>(2);
+
+Thread producer = new Thread(() -> {
+    try {
+        queue.put("Task 1");
+        queue.put("Task 2");
+        queue.put("Task 3");
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+    }
+});
+
+Thread consumer = new Thread(() -> {
+    try {
+        System.out.println(queue.take());
+        System.out.println(queue.take());
+        System.out.println(queue.take());
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+    }
+});
+```
+The important part is what happens with "Task 3":
+```
+Task 1 → queue
+Task 2 → queue
+             ↓
+        queue is full
+             ↓
+Producer waits
+             ↓
+Consumer takes Task 1
+             ↓
+Space becomes available
+             ↓
+Producer continues with Task 3
+```
+
+### Generics
+
+# What are Generics?
+Generics allow us to write reusable and type-safe code that can work with different data types. The type is specified when we use the class, interface, or method, and the compiler checks that type for us.
+
+For example, List<String> means the list is intended to contain only String objects, so if I try to add an Integer, I get a compile-time error. Generics are heavily used in the Collections Framework, but they can also be used with our own classes and methods to avoid duplicate code and reduce unnecessary type casting.
+```
+Generics → Write reusable code that works with different types.
+Main benefits → Type safety + reusability + less casting.
+List<String> → List restricted to String values.
+<T> → Type parameter.
+Generic class → Same class can work with different types.
+Generic method → Same method can work with different types.
+Collections → Heavily use generics.
+Primitives → Cannot be used directly; use wrapper types like Integer.
+Compile-time checking → Wrong type is usually caught by compiler.
+Raw type → Collection used without generic type, e.g. List list.
+```
+
+
+# Why do we need Generics? Can you give an example of how Generics make a program more flexible?
+We need Generics mainly to make our code type-safe and reusable. Instead of writing separate classes or methods for different data types, we can write one generic implementation and specify the type when we use it.
+
+For example, instead of creating separate StringBox, IntegerBox, and DoubleBox classes, I can create one Box<T> class. Then I can use Box<String>, Box<Integer>, or Box<Double> without changing the class itself. The compiler also checks the type for me, so I get errors at compile time instead of dealing with incorrect types at runtime.
+
+This is why Generics are heavily used in the Collections Framework—for example, List<String>, Map<Long, User>, and Set<Integer> allow the same collection implementations to work safely with different types.
+```
+Why Generics → Type safety + code reuse + less casting.
+Type safety → Wrong type is caught at compile time.
+Reusability → One generic class/method works with many types.
+Flexibility → Type can be specified when the class/method is used.
+Without Generics → Often requires Object + explicit casting.
+With Generics → Compiler knows the expected type.
+Collections → List<String>, Map<Long, User>, Set<Integer>, etc.
+Generic class → class Box<T>.
+Generic method → <T> T method(...).
+Primitives → Can't be used directly; use wrappers like Integer.
+```
+
+# How do you declare a generic class?
+To declare a generic class, we add one or more type parameters inside angle brackets after the class name. These type parameters act as placeholders for the actual types that will be provided when the class is used.
+
+For example, class Box<T> declares a generic class where T can represent different types. I can then create Box<String> or Box<Integer> without creating separate classes for each type. This gives us code reuse while keeping type safety at compile time.
+```
+Generic class → Class that works with different types.
+Declaration → class Box<T> { }
+T → Type parameter/place-holder.
+Usage → Box<String>, Box<Integer>, etc.
+Multiple types → class Pair<K, V>.
+K → Key, V → Value, T → Type, E → Element (common conventions).
+Benefit → Code reuse + compile-time type safety.
+```
+
+# What are the restrictions in using generic type that is declared in a class declaration?
+When a generic type like T is declared at the class level, there are some restrictions. We cannot instantiate T directly using new T(), create a generic array like new T[], use the class-level T in static fields or static context, or use T with instanceof or as an exception type. Also, generic type arguments must be reference types, so primitives like int cannot be used directly; we use wrapper types like Integer. Most of these restrictions exist because Java implements generics using type erasure.
+```
+new T()           → ❌ Cannot instantiate type parameter
+new T[]           → ❌ Cannot create generic array directly
+static T field    → ❌ Class-level T cannot be used in static context
+instanceof T      → ❌ Cannot check generic type at runtime
+throws T          → ❌ Cannot use type parameter as exception type
+Box<int>          → ❌ Primitives not allowed
+Box<Integer>      → ✅ Use wrapper classes
+```
+
+# How can we restrict Generics to a subclass of particular class?
+We can restrict a generic type using a bounded type parameter with the extends keyword. For example, class Box<T extends Animal> means that T can be Animal or any subclass of Animal. This gives us type safety while also allowing the generic code to use the methods available in the bound type. For example, because T extends Animal, I can safely call eat() on a T object.
+
+```
+class Animal {
+    void eat() {
+        System.out.println("Eating");
+    }
+}
+
+class Box<T extends Animal> {
+
+    private T value;
+
+    Box(T value) {
+        this.value = value;
+    }
+
+    void process() {
+        value.eat();   // ✅ Allowed
+    }
+}
+```
+```
+Box<Dog> box = new Box<>(new Dog());       // ✅
+Box<Cat> box2 = new Box<>(new Cat());      // ✅
+Box<String> box3 = new Box<>("Hello");     // ❌
+Quick Notes
+Bounded generic → T extends Type
+T extends Animal → Animal or its subclasses
+Purpose → Restrict allowed types + access bound's methods
+Class bound → T extends Animal
+Interface bound → T extends Comparable<T>
+Multiple bounds → T extends Animal & Serializable
+```
+
+# How can we restrict Generics to a super class of particular class?
+We use a **lower-bounded wildcard with `super`** when we want to restrict a generic type to a particular class or any of its superclasses. For example, `List<? super Integer>` allows `List<Integer>`, `List<Number>`, and `List<Object>`, but not `List<Double>`. This is mainly useful when the generic code needs to **consume or add values of a specific type safely**. In contrast, `extends` is used when we want a type that is a subclass of a given type.
+```
+super → lower-bounded wildcard
+List<? super Integer> → Integer, Number, Object
+extends → upper bound
+super → lower bound
+<T super Integer> → ❌ Invalid syntax
+PECS → Producer Extends, Consumer Super
+```
+
+# Can you give an example of a generic method?  
+A generic method is a method that declares its own type parameter, so the method can work with different types while maintaining compile-time type safety. The type parameter is declared before the return type, for example, `public static <T> T getFirst(T[] array)`. When the method is called, Java can usually infer the actual type from the arguments. This makes the method reusable without needing separate versions for different data types.
+```
+Generic method → Method with its own type parameter
+Syntax → <T> before return type
+Example → public static <T> T getFirst(T[] array)
+T can represent different types
+Java often infers T automatically from arguments
+Generic class and generic method are independent concepts
 ```
 
