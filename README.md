@@ -17426,6 +17426,3843 @@ String s = words.stream().collect(Collectors.joining("-"));
 9. A teammate uses `peek` to mutate elements as part of production logic. Why is this a bad idea?
 
 
+
+## 41. The `Optional` Class
+
+
+
+### 1. The Problem with `null`
+
+`NullPointerException` is Java's most notorious failure. Two separate problems cause it:
+
+#### Problem 1: Defensive null-checking turns into a pyramid
+
+```java
+User u = getUser();
+if (u != null) {
+    Address a = u.getAddress();
+    if (a != null) {
+        String city = a.getCity();
+        if (city != null) {
+            System.out.println(city);
+        }
+    }
+}
+```
+
+All that to read one nested field. This is the "null-check hell" `Optional` exists to flatten.
+
+#### Problem 2: `null` is ambiguous
+
+```java
+String name = getName();   // returns null...
+```
+
+Does `null` mean the name is empty? That it doesn't exist? That an API call failed? A legitimate "no value"? The type system gives no clue — and the caller carries the *entire* responsibility of remembering to check.
+
+---
+
+### 2. What `Optional<T>` Is
+
+> **`Optional<T>` is a wrapper around a `T` that explicitly says: "this may or may not contain a value."**
+
+```
+Optional<String>
+  ┌─────────────┐
+  │   "Aditya"   │   → present
+  └─────────────┘
+
+Optional<String>
+  ┌─────────────┐
+  │    (empty)   │   → empty (the wrapped value is null)
+  └─────────────┘
+```
+
+Conceptually it's just:
+
+```java
+class Optional<T> {
+    private final T value;
+    boolean isPresent() { return value != null; }
+}
+```
+
+#### The contract it creates
+
+```java
+String getName()              // promises: I will NEVER return null
+Optional<String> getName()    // warns:    I MIGHT have no value — handle it
+```
+
+Because the return type is `Optional<String>`, you **cannot** call `.length()` on it directly — it's not a `String`. The compiler forces you to deal with the wrapper first, so you can't accidentally skip the check. That's the whole safety mechanism.
+
+---
+
+### 3. Creating an `Optional`
+
+```java
+Optional<String> a = Optional.of("Aditya");          // value must be non-null
+Optional<String> b = Optional.ofNullable(maybeNull);  // value OR null both OK
+Optional<String> c = Optional.empty();                 // explicitly empty
+```
+
+| Method | Accepts `null`? | Use when |
+|---|---|---|
+| `Optional.of(x)` | ❌ throws `NullPointerException` | You're certain `x` is non-null |
+| `Optional.ofNullable(x)` | ✅ → empty Optional | `x` might legitimately be null |
+| `Optional.empty()` | n/a | You know there's no value |
+
+> **Interview-gold line:** *"`Optional.of` is strict by design — passing null to it fails immediately, rather than quietly producing an Optional that lies about containing a value. `ofNullable` is the forgiving version for values you genuinely can't vouch for."*
+
+---
+
+### 4. Extracting the Value
+
+Given `Optional<String> name = getName();`:
+
+#### `get()` — dangerous
+
+```java
+String s = name.get();   // throws NoSuchElementException if empty
+```
+This just trades `NullPointerException` for a different exception — you've reintroduced the original problem. Avoid it unless you've verified presence first.
+
+#### `isPresent()` + `get()` — safe, but not much better than a null check
+
+```java
+if (name.isPresent()) {
+    String s = name.get();
+}
+```
+Safer, but it's essentially `if (x != null)` again. The real benefits come from the methods below.
+
+#### `ifPresent(Consumer)` — run code only if a value exists
+
+```java
+name.ifPresent(System.out::println);   // prints only if present; silently skips if empty
+```
+
+#### `orElse(default)` — fallback value
+
+```java
+String s = name.orElse("Unknown");
+```
+
+#### `orElseGet(Supplier)` — fallback computed **lazily**
+
+```java
+String s = name.orElseGet(() -> "Unknown");
+```
+
+**`orElse` vs `orElseGet`:** `orElse`'s argument is **always evaluated**, even when a value is present. `orElseGet`'s `Supplier` runs **only if the Optional is empty** — like short-circuiting. Use `orElseGet` when computing the default is expensive (a DB call, a heavy computation).
+
+#### `orElseThrow()` — fail loudly if empty
+
+```java
+String s = name.orElseThrow();                          // NoSuchElementException if empty
+String s = name.orElseThrow(() -> new IllegalStateException("Name missing"));  // custom exception
+```
+Use when absence is genuinely an error. (In modern Java, no-arg `orElseThrow()` is the preferred, clearer replacement for bare `get()`.)
+
+#### `ifPresentOrElse(Consumer, Runnable)` — both branches
+
+```java
+name.ifPresentOrElse(
+    n -> System.out.println(n),          // present
+    () -> System.out.println("Unknown")); // empty
+```
+
+#### Quick reference
+
+| Method | Present → | Empty → |
+|---|---|---|
+| `get()` | value | `NoSuchElementException` |
+| `ifPresent(c)` | runs `c` | does nothing |
+| `orElse(d)` | value | `d` (always evaluated) |
+| `orElseGet(s)` | value | `s.get()` (lazy) |
+| `orElseThrow()` | value | throws |
+| `ifPresentOrElse(c, r)` | runs `c` | runs `r` |
+
+---
+
+### 5. Transformations — `map`, `flatMap`, `filter`
+
+> **Mental model: an `Optional` is a mini-stream with at most one element.** A real stream holds 0..many values; an `Optional` holds 0 or 1. The same ideas apply.
+
+#### `map(Function)` — transform the value if present
+
+```java
+Optional<Integer> len = name.map(String::length);
+```
+Present → applies the function and wraps the result. Empty → stays empty. Always returns an `Optional`, so calls chain.
+
+#### `filter(Predicate)` — keep it only if the test passes
+
+```java
+Optional<String> longName = name.filter(n -> n.length() > 5);
+```
+Test passes → unchanged. Test fails → becomes empty.
+
+```java
+Optional.of("Aditya")
+    .map(String::length)          // Optional<Integer> = 6
+    .filter(len -> len > 4)        // passes → still 6
+    .ifPresent(System.out::println); // prints 6
+```
+
+#### `flatMap(Function)` — when the function itself returns an `Optional`
+
+```java
+class User { Optional<Address> getAddress() {...} }   // address is optional
+class Address { String getCity() {...} }
+```
+
+```java
+user.map(u -> u.getAddress())      // Optional<Optional<Address>> — nested! 
+```
+`map` wraps its result in a new `Optional`, so `Optional`-returning functions produce `Optional<Optional<...>>` — you can't call `.map(a -> a.getCity())` on that, because the "address" you receive is still an `Optional`, not an `Address`.
+
+```java
+user.flatMap(u -> u.getAddress())   // Optional<Address> — flattened
+```
+`flatMap` unwraps one level — exactly the same idea as `flatMap` on streams.
+
+> **Rule of thumb:** if the function you're mapping with **returns an `Optional`** → `flatMap`. If it returns a plain value → `map`.
+
+---
+
+### 6. The Pyramid, Rewritten
+
+Before (null-check pyramid):
+
+```java
+User u = getUser();
+if (u != null) { ... if (a != null) { ... if (city != null) { println(city); } } }
+```
+
+After, with `Optional<User> getUser()`:
+
+```java
+getUser()
+    .map(User::getAddress)     // assumes getAddress() returns Address (non-Optional)
+    .map(Address::getCity)
+    .ifPresent(System.out::println);
+```
+
+If `getAddress()` itself returns `Optional<Address>`, swap that step to `.flatMap(User::getAddress)`. Any missing link in the chain simply produces an empty Optional that flows through the rest harmlessly — no `NullPointerException`, no nesting.
+
+---
+
+### 7. Usage Guidelines — Don't Overuse It
+
+> `Optional` was designed as a **method return type**, to signal "might be absent." It was **not** designed as a general-purpose data type.
+
+```java
+// Intended use — return type:
+Optional<String> findName(int id) { ... }
+
+// Discouraged — as a field type:
+class X {
+    Optional<String> name;   // don't do this
+}
+```
+
+Why not wrap every field in `Optional`?
+- `String` is already an object; wrapping it adds a second object per field — memory and clutter.
+- Every access becomes `.isPresent()` / `.orElse()` / `.get()` boilerplate throughout the program.
+
+**Use `Optional` when a method might not have a meaningful return value.** Otherwise, keep ordinary types.
+
+---
+
+### 8. `Optional` + Streams
+
+Stream: 0..many values. Optional: 0..1 value. Combining them handles "many items, each of which may be missing."
+
+```java
+// users with an Optional<String> email — print every email that exists
+List<String> emails = users.stream()
+    .map(User::getEmail)                 // Stream<Optional<String>>
+    .filter(Optional::isPresent)          // drop empty ones
+    .map(Optional::get)                    // unwrap what's left
+    .toList();
+```
+
+Compare to the traditional version (loop, `null` check, `add`) — the stream form reads as intent: "take each email, keep the ones that exist, unwrap them."
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** Why does `Optional<String> getName()` communicate something `String getName()` can't?
+
+*Answer:* The return type itself signals "may have no value." The compiler also prevents calling `String` methods directly on it, forcing the caller to handle absence explicitly rather than forgetting a null check.
+
+> **Q2.** `Optional.of(null)` vs. `Optional.ofNullable(null)`?
+
+*Answer:* `of` throws `NullPointerException` immediately; `ofNullable` returns an empty `Optional`.
+
+> **Q3.** What's the real difference between `orElse(x)` and `orElseGet(() -> x)`?
+
+*Answer:* `orElse`'s argument is always evaluated, even when a value is present; `orElseGet`'s supplier runs only when the Optional is empty. Matters when computing the default is expensive.
+
+> **Q4.** When do you need `flatMap` instead of `map`?
+
+*Answer:* When the mapping function itself returns an `Optional`. `map` would produce `Optional<Optional<T>>`; `flatMap` flattens it to `Optional<T>`.
+
+> **Q5.** Why is `Optional` discouraged as a field type?
+
+*Answer:* It was designed as a return type to signal absence. As a field it adds a wrapper object per field and forces `.isPresent()`/`.orElse()` handling throughout the codebase for little benefit.
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] `null` has two problems: **defensive null-check pyramids** and **ambiguity** (does it mean empty, missing, or an error?).
+- [ ] `Optional<T>` is a wrapper meaning **"may or may not contain a value"** — put it in a method's **return type** to make absence part of the contract.
+- [ ] Return plain `T` to promise "never null"; return `Optional<T>` to warn "might be absent."
+- [ ] Creating: `Optional.of(x)` (non-null only — throws on null), `Optional.ofNullable(x)` (null allowed), `Optional.empty()`.
+- [ ] Avoid bare `get()` — it throws `NoSuchElementException` on empty. Prefer `ifPresent`, `orElse`, `orElseGet`, `orElseThrow`, `ifPresentOrElse`.
+- [ ] `orElse` always evaluates its argument; `orElseGet` is lazy — use it for expensive defaults.
+- [ ] An `Optional` is a **mini-stream of at most one element**: `map` transforms, `filter` keeps-or-empties, `flatMap` flattens `Optional<Optional<T>>`.
+- [ ] Use `flatMap` when your mapping function returns an `Optional`; `map` when it returns a plain value.
+- [ ] `Optional` is for **return types**, not fields or general data types — wrapping everything adds objects and boilerplate.
+- [ ] Streams of Optionals: `.map(getOptional).filter(Optional::isPresent).map(Optional::get)` unwraps only the present values.
+
+---
+
+#### Practice Questions
+
+**Basic**
+
+1. What's the difference between `Optional.of("x")` and `Optional.ofNullable(null)`?
+
+2. Why is calling `.get()` directly considered risky?
+
+3. What does `ifPresent` do when the Optional is empty?
+
+**Intermediate**
+
+4. `Optional<User> u`, where `User.getAddress()` returns `Optional<Address>`. Why does `u.map(User::getAddress)` give `Optional<Optional<Address>>`, and how do you fix it?
+
+5. Explain a concrete scenario where `orElseGet` is meaningfully better than `orElse`.
+
+6. Rewrite a three-level nested null check (`user → address → city`) using `Optional`.
+
+**Advanced / Interview-style**
+
+7. A teammate declares `private Optional<String> name;` as a field everywhere. Explain why this is discouraged and what the better approach is.
+
+8. Given `List<User>` where `User.getEmail()` returns `Optional<String>`, write a stream pipeline producing a `List<String>` of all existing emails. Why must you `filter(Optional::isPresent)` before calling `get`?
+
+9. "`Optional` eliminates NullPointerException." Critique this claim — what does it genuinely prevent, and what can still go wrong?
+
+
+## 42. Parallel Streams & Primitive Optionals
+
+
+
+### 1. Sequential vs. Parallel
+
+```java
+list.stream().map(x -> x * 2).forEach(System.out::println);          // sequential
+list.parallelStream().map(x -> x * 2).forEach(System.out::println);  // parallel
+```
+
+- **Sequential stream**: one element at a time flows through the pipeline, in order.
+- **Parallel stream**: the data is split into chunks, and **multiple elements flow through the pipeline simultaneously**, using multiple threads under the hood.
+
+#### The visible side effect: order is lost
+
+```java
+list.parallelStream()
+    .map(x -> x * 2)
+    .forEach(System.out::println);
+// prints e.g. 6 20 14 16 2 4 ... — NOT in source order
+```
+
+Different threads finish at different times (waiting, context switching, scheduling), so output order is nondeterministic.
+
+`forEachOrdered` restores order — but it makes faster threads **wait** for slower ones to emit in sequence, which eats into the very speedup you wanted parallelism for.
+
+```java
+list.parallelStream().map(x -> x * 2).forEachOrdered(System.out::println);  // ordered, but with overhead
+```
+
+---
+
+### 2. The Mental Model: Fork → Process → Join
+
+A friend-helping-you analogy: you have 10 numbers to transform. Instead of doing all 10 yourself (O(n) work for one worker), you hand 5 to a friend — each of you does n/2. Split further across 4 helpers → n/4 each.
+
+```
+[1 2 3 4 5 6 7 8 9 10]
+        │ fork
+   ┌────┴────┐
+[1 2 3 4 5] [6 7 8 9 10]
+   │ fork      │ fork
+[1 2 3][4 5] [6 7 8][9 10]
+   │      │      │      │      ← each chunk on its own thread, independently
+   └──────┴──────┴──────┘
+          join (combine results)
+```
+
+Java does this via a **Fork-Join pool**: a pool of reusable worker threads. "Fork" = split work; "join" = combine results. **You don't choose how many chunks or threads** — Java decides, based on:
+- size of the data,
+- complexity of the work,
+- number of threads available (the pool is limited, not infinite).
+
+> Detail on thread pools and multicore CPUs belongs to the multithreading series — for now, "workers that can run tasks independently" is enough.
+
+---
+
+### 3. `Spliterator` — What Makes Splitting Possible
+
+Sequential `stream()` already used a `Spliterator` internally (mentioned in the intro lecture); parallel streams are where its name earns its keep: **split + iterator**.
+
+A normal `Iterator` can only step forward one element at a time — it has no way to say "give me half of the remaining data." A `Spliterator` can.
+
+**Three jobs:**
+
+1. **Traverse** elements — via `tryAdvance()` (the equivalent of `hasNext()`/`next()`).
+2. **Decompose the source** — via `trySplit()`: attempt to cut the remaining data into two parts, handing the second half to a new Spliterator. Applied recursively, this is the "fork."
+3. **Describe the source** — report characteristics (ordered? indexed? sorted? size?) so the stream can optimize.
+
+```java
+Spliterator<Integer> s1 = list.spliterator();
+Spliterator<Integer> s2 = s1.trySplit();   // s1 keeps one half, s2 gets the other
+```
+
+**`trySplit()` can fail** — it's a "try" because not every source can be cheaply split (e.g., a linked list; see §5). It returns `null` if it can't split.
+
+> **You will almost never write a Spliterator yourself.** It exists as infrastructure for streams. Know what it does, not how to implement it.
+
+---
+
+### 4. Stateless vs. Stateful — Why `parallelStream()` Isn't Magic
+
+Writing `parallelStream()` only tells Java: *"parallelize if you can."* What it can actually parallelize depends on the operations.
+
+```java
+list.parallelStream()
+    .filter(x -> x > 10)    // stateless — each element independent
+    .map(x -> x * 2)         // stateless
+    .sorted()                 // STATEFUL — needs every element
+    .distinct()               // STATEFUL — needs every element
+    .forEach(System.out::println);
+```
+
+- **Stateless** (`filter`, `map`): chunks proceed independently — great for parallelism.
+- **Stateful** (`sorted`, `distinct`): act as **barriers**. All chunks must finish and **join** before the operation can proceed, then (if there's more pipeline) work can fork again. Every barrier eats parallel gains and adds fork/join coordination cost.
+
+The result can be **slower than a sequential stream**: you pay the overhead of managing threads and a pool, but get little parallel benefit.
+
+> **Interview-gold line:** *"`parallelStream()` is a hint, not a speedup. Fork-join has real overhead — splitting, scheduling, and merging. If the work per element is tiny, the dataset is small, or the pipeline has many stateful operations, that overhead can exceed the gain, and parallel ends up slower than sequential."*
+
+---
+
+### 5. When to Use / When Not to Use
+
+#### Parallel streams tend to help when:
+
+- **The dataset is huge** (millions of elements).
+- **The work is CPU-intensive** per element — parallel threads can run on separate CPU cores.
+- **Operations are mostly stateless.** (A few stateful ops are tolerable if the dataset is big enough.)
+- **The source data structure splits cheaply** — arrays and `ArrayList` (indexed, random access): the midpoint is reachable in O(1), so `trySplit()` is trivial.
+
+#### Avoid parallel streams when:
+
+- **The dataset is small** — overhead dominates.
+- **Many stateful operations** — constant barriers kill the parallelism.
+- **The source is a `LinkedList`** (or anything without cheap random access) — to split at the middle you must walk there from the head, making the split itself an expensive operation.
+
+> **Default to sequential streams.** Reach for parallel only when you can justify it — large data, CPU-heavy work, stateless operations — ideally verified by measurement.
+
+---
+
+### 6. The Real Danger: Shared Mutable State → Race Conditions
+
+Beyond "no speedup," there's a case that's an outright **bug**:
+
+```java
+List<Integer> result = new ArrayList<>();       // shared, mutable
+
+list.parallelStream()
+    .filter(x -> x > 10)
+    .forEach(x -> result.add(x));                // BAD — mutating external state
+```
+
+With a sequential stream this works. With `parallelStream()`, **multiple threads call `result.add(x)` at the same moment** on a non-thread-safe `ArrayList`:
+
+```
+Thread T1: add(2)  ──┐
+                      ├─ both target the same slot in the backing array
+Thread T2: add(5)  ──┘   → one overwrites the other → data lost / corrupted
+```
+
+This is a **race condition**: the outcome depends on which thread "wins" a timing race. `result` is a **shared mutable resource** — anything outside the pipeline that multiple threads modify.
+
+**Fix:** don't mutate external state from inside stream operations. Let the stream **produce** the result:
+
+```java
+List<Integer> result = list.parallelStream()
+    .filter(x -> x > 10)
+    .toList();       // or .collect(Collectors.toList())
+```
+
+> **Interview-gold line:** *"A well-behaved stream pipeline is side-effect free — operations take elements and return values; they don't modify outside variables. That discipline is optional in a sequential stream, but mandatory for correctness in a parallel one."*
+
+---
+
+### 7. Primitive `Optional`s
+
+Recall `Optional<T>` wraps an object. Wrapping a primitive means boxing it (`Optional<Integer>`) and unboxing on use — the same autoboxing cost seen with functional interfaces and primitive streams. So Java provides primitive variants for the same three types:
+
+```
+OptionalInt      OptionalLong      OptionalDouble
+```
+
+**Why you've already seen them:** primitive streams' terminal operations return them (because an empty stream has no max/average):
+
+```java
+OptionalInt    max = IntStream.of(1, 2, 3).max();
+OptionalDouble avg = IntStream.of(1, 2, 3).average();
+```
+
+Same API as `Optional`, with a type-specific getter instead of `get()`:
+
+```java
+int max      = optInt.getAsInt();
+double avg   = optDouble.getAsDouble();
+long total   = optLong.getAsLong();
+
+optInt.isPresent();
+optInt.orElse(0);
+optInt.ifPresent(System.out::println);
+```
+
+Only `int`/`long`/`double` are covered — same reasoning as primitive streams and functional interfaces (they dominate numeric hot paths).
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** Why can't a normal `Iterator` support parallel streams?
+
+*Answer:* It can only step forward one element at a time — it has no way to divide the remaining data into independent chunks. `Spliterator` adds `trySplit()` to do exactly that.
+
+> **Q2.** Why might `parallelStream()` end up slower than `stream()`?
+
+*Answer:* Fork-join has overhead (splitting, thread coordination, merging). With small data, light per-element work, or many stateful operations (which force chunks to join), that overhead outweighs the parallel gain.
+
+> **Q3.** Why are stateful operations like `sorted()` bad for parallelism?
+
+*Answer:* They need all elements before proceeding, acting as barriers — every chunk must finish and merge first, then forking resumes. Each barrier adds coordination cost and limits parallel benefit.
+
+> **Q4.** Why are `ArrayList`s good sources for parallel streams but `LinkedList`s poor ones?
+
+*Answer:* Arrays/`ArrayList` support O(1) random access, so finding the midpoint to split is cheap. A linked list requires walking from the head to reach the middle — splitting itself becomes expensive.
+
+> **Q5.** What's wrong with `forEach(x -> result.add(x))` on a parallel stream?
+
+*Answer:* Multiple threads concurrently mutate a non-thread-safe shared list — a race condition causing lost or corrupted data. Let the stream build the result (`toList()`/`collect`) instead of mutating external state.
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] `parallelStream()` splits data into chunks processed by multiple threads simultaneously, then joins results — the **fork-join** model. Java decides chunk count and threads; you don't.
+- [ ] A `Spliterator` does three jobs: **traverse** (`tryAdvance`), **decompose** (`trySplit` — may fail), **describe** the source. You rarely implement one yourself.
+- [ ] Parallel output order is **not guaranteed**; `forEachOrdered` restores it at the cost of waiting (overhead).
+- [ ] `parallelStream()` is a **hint**, not a guarantee of speed.
+- [ ] **Stateless** ops (`filter`, `map`) parallelize well; **stateful** ops (`sorted`, `distinct`) are barriers that force joins.
+- [ ] Use parallel when: **huge data**, **CPU-intensive work**, **mostly stateless ops**, **array-backed source** (arrays/`ArrayList`).
+- [ ] Avoid parallel when: **small data**, **many stateful ops**, **`LinkedList`** or other poorly-splittable sources — overhead can make it *slower* than sequential.
+- [ ] **Never mutate shared external state** (e.g., adding to an outside list) inside parallel stream operations — **race conditions** cause lost/corrupted data. Let the stream produce the result via `toList()`/`collect()`.
+- [ ] Prefer **side-effect-free** pipelines in general; in parallel streams, it's mandatory for correctness.
+- [ ] **`OptionalInt` / `OptionalLong` / `OptionalDouble`** avoid boxing; returned by primitive-stream terminals (`max`, `min`, `average`); extract with `getAsInt()`/`getAsLong()`/`getAsDouble()`.
+- [ ] Default to **sequential** streams; reach for parallel only when justified (and measured).
+
+---
+
+#### Practice Questions
+
+**Basic**
+
+1. What does `trySplit()` do, and why is it called "try"?
+
+2. Why does parallel `forEach` print elements out of order?
+
+3. Which three primitives have dedicated `Optional` classes, and how do you extract each value?
+
+**Intermediate**
+
+4. A pipeline is `parallelStream().filter(...).map(...).sorted().distinct().forEach(...)` over 50 elements from an `ArrayList`. Predict whether parallel will help, and justify using stateful/stateless reasoning.
+
+5. Explain why a `LinkedList` is a poor source for parallel streams, using the Spliterator's `trySplit()` mechanics.
+
+6. Why does `forEachOrdered` partially defeat the purpose of using a parallel stream?
+
+**Advanced / Interview-style**
+
+7. Explain a concrete interleaving of two threads that loses data when both call `result.add(x)` on an `ArrayList` inside a parallel `forEach`. Then rewrite the code correctly.
+
+8. A teammate says "I made everything `.parallelStream()` for speed." Give three specific situations where this could make things slower or incorrect.
+
+9. Why must a Spliterator "describe" its source (ordered? indexed? sorted? sized?) — what optimization opportunities does that information enable for the stream pipeline?
+
+
+## 43. Exception Handling — Introduction
+
+
+### 1. Why Exception Handling Exists
+
+Real programs rarely run the way you planned:
+
+- A user types a wrong value into a form field.
+- A file you expected is missing.
+- A denominator arrives as `0`.
+- Swiggy-style scenario: your menu service queries the database, the connection drops, and an `SQLException` is thrown.
+
+You're not a perfect programmer and your users aren't perfect users. Code must expect things to go wrong.
+
+Java splits every problem into two categories: **`Error`** and **`Exception`**.
+
+---
+
+### 2. Exception vs. Error
+
+> **Exception**: a **recoverable / handleable** abnormal condition during program execution. You can fix it or work around it in code.
+> **Error**: a **serious problem you cannot reasonably recover from** — your business logic isn't built to handle it.
+
+Both are **objects** — Java is object-oriented, so when something goes wrong, the JVM creates an object describing the problem and *throws* it.
+
+| | Exception | Error |
+|---|---|---|
+| Recoverable? | Yes | No |
+| Handle in code? | Yes — that's the whole topic | Don't try |
+| Examples | `ArithmeticException`, file-not-found, bad user input | `OutOfMemoryError`, `StackOverflowError` |
+
+##### The two classic Errors
+
+- **`OutOfMemoryError`** — heap memory is full; no new objects can be created.
+- **`StackOverflowError`** — stack memory is full; typically infinite/very deep recursion.
+
+```java
+static void recurse() { recurse(); }   // runs until the stack is exhausted → StackOverflowError
+```
+
+> **Interview-gold line:** *"Exceptions are for situations your code can anticipate and recover from; Errors signal JVM-level failures you can't meaningfully fix at runtime. That's why we study exception handling and not 'error handling'."*
+
+---
+
+### 3. What Happens If You Don't Handle an Exception
+
+```java
+public static void main(String[] args) {
+    System.out.println("Step 1");
+    int a = 5, b = 0;
+    System.out.println(a / b);      // throws ArithmeticException
+    System.out.println("Step 2");   // never reached
+}
+```
+
+Output: `Step 1`, then an `ArithmeticException` stack trace. **`Step 2` never prints** — the normal flow of control is broken and the program terminates.
+
+If you don't handle it, **the JVM decides everything** — and its decision is "crash". You've lost control of your own program.
+
+#### Why handle it?
+
+- **You control the flow** — you decide what happens next, not the JVM.
+- **Easier debugging** — you know where and how failures are dealt with.
+- **Better user experience** — nobody wants a crash.
+
+Scenario: a Zomato-style app fetches menu items from the DB and the connection fails. Unhandled, the raw exception crashes the service and can leak to the frontend. Handled, you show *"Couldn't load menu right now, please try again shortly"* (or an empty list) — the app stays up.
+
+---
+
+### 4. Two Ways to Deal With Trouble
+
+### A. Preventive — plain `if`/`else`
+
+```java
+if (b == 0) {
+    System.out.println("b cannot be zero");   // never perform the division at all
+} else {
+    System.out.println(a / b);
+}
+```
+No exception object is ever created — you avoided the bad situation entirely.
+
+#### B. Reactive — `try`/`catch` (covered below)
+
+Try the risky operation; if it fails, an exception is thrown and you handle it.
+
+> **Handling ≠ removing exceptions.** It means *deciding what should happen* when one occurs.
+
+---
+
+### 5. What Actually Happens When an Exception Occurs
+
+For `a / b` with `b == 0`, the JVM:
+
+1. Recognizes the operation is illegal.
+2. Creates an exception **object**: `new ArithmeticException("/ by zero")` (the JVM supplies the message; the real message text is `/ by zero`).
+3. **Throws** it — halts normal flow immediately; nothing after that line in the method executes.
+4. Looks for a handler, starting at the current method and moving up the **call stack**.
+5. If no handler is found anywhere, the **default exception handler** prints the stack trace and terminates the program.
+
+#### The call stack
+
+```
+main() calls methodA(), which calls methodB()
+
+Stack grows:                 Stack shrinks (as methods return/exit):
+
+ ┌─────────────┐
+ │  methodB    │ ← top          methodB popped → back in methodA
+ ├─────────────┤                methodA popped → back in main
+ │  methodA    │                main popped    → stack empty, program done
+ ├─────────────┤
+ │    main     │
+ └─────────────┘
+```
+
+When an exception is thrown inside `methodB` and nobody handles it:
+
+```
+Ask methodB: handled it?  No → pop methodB
+Ask methodA: handled it?  No → pop methodA
+Ask main:    handled it?  No → pop main → default handler prints stack trace, program terminates
+```
+
+---
+
+### 6. Reading a Stack Trace
+
+```java
+public class Demo2 {
+    public static void main(String[] args) { methodA(5, 0); }       // line 6
+    static void methodA(int a, int b)      { methodB(a, b); }        // line 10
+    static void methodB(int a, int b)      { System.out.println(a / b); }  // line 13
+}
+```
+
+```
+Exception in thread "main" java.lang.ArithmeticException: / by zero
+    at Demo2.methodB(Demo2.java:13)
+    at Demo2.methodA(Demo2.java:10)
+    at Demo2.main(Demo2.java:6)
+```
+
+Read it **top to bottom = where it happened → who called it**:
+
+| Part | Meaning |
+|---|---|
+| `Exception in thread "main"` | Which thread threw it (matters in multithreading; `main` is the default thread) |
+| `java.lang.ArithmeticException` | The exception **class** — `java.lang` is auto-imported |
+| `/ by zero` | The **message** |
+| `at Demo2.methodB(Demo2.java:13)` | **Origin**: `ClassName.methodName(FileName:lineNumber)` |
+| next `at …` lines | The chain of callers, up to `main` |
+
+The first `at` line is the exact line where the exception was thrown; the rest tell you how execution got there. It's a full report — use it.
+
+---
+
+### 7. `try` / `catch`
+
+```java
+System.out.println("Step 1");
+try {
+    int a = 5, b = 0;                 // risky code goes here
+    System.out.println(a / b);
+} catch (ArithmeticException e) {
+    System.out.println("Division by zero is not allowed");
+}
+System.out.println("Step 2");
+```
+
+Output:
+```
+Step 1
+Division by zero is not allowed
+Step 2
+```
+
+The program **doesn't crash** and carries on.
+
+- **`try`** — holds the *risky* code (code that *might* throw; e.g., `b` comes from user input).
+- **`catch (ExceptionType e)`** — runs only if that type of exception is thrown inside the `try`. `e` is just a reference variable to the exception object.
+
+### Flow inside the JVM
+
+```
+Step 1 printed
+→ enter try
+→ a = 5, b = 0
+→ a / b illegal → new ArithmeticException("/ by zero") thrown, normal flow stops
+→ JVM looks for a matching catch in the current method → found
+→ runs catch body → prints message
+→ exception is now HANDLED → execution continues after the try/catch
+→ Step 2 printed
+```
+
+If **no** exception occurs in `try`, the `catch` is skipped entirely.
+
+---
+
+#### 8. Where You Handle It Decides What Runs Next
+
+Same call chain (`main → methodA → methodB`), division in `methodB`. You can put the `try`/`catch` at **any level**:
+
+```java
+// Handled in main
+static void main(...) {
+    System.out.println("Step 1");
+    try { methodA(5, 0); }
+    catch (ArithmeticException e) { System.out.println("Division by zero is not allowed"); }
+}
+static void methodB(int a, int b) {
+    System.out.println(a / b);
+    System.out.println("Step 2");     // skipped — methodB was unwound
+}
+```
+Output: `Step 1`, `Division by zero is not allowed`. **`Step 2` never prints** — the JVM popped `methodB` and `methodA` off the stack while searching for a handler, so `methodB`'s remaining lines were abandoned.
+
+```java
+// Handled inside methodB itself
+static void methodB(int a, int b) {
+    try { System.out.println(a / b); }
+    catch (ArithmeticException e) { System.out.println("Division by zero is not allowed"); }
+    System.out.println("Step 2B");    // runs — stack was never unwound
+}
+```
+Output: `Step 1`, `Division by zero is not allowed`, `Step 2B`.
+
+> **Interview-gold line:** *"The closer to the failure you catch the exception, the more of the surrounding method still runs; catching further up means every method between the throw point and the handler is abandoned mid-execution."*
+
+---
+
+### 9. Using the Exception Object `e`
+
+```java
+catch (ArithmeticException e) {
+    System.out.println(e.getMessage());   // "/ by zero"
+    e.printStackTrace();                   // prints the full stack trace, but program continues
+}
+```
+
+- `getMessage()` — the message string.
+- `printStackTrace()` — prints the same trace the JVM would have, **without** crashing. In production you'd route this to a **log file** (so you can see which class/method/line failed and how often).
+- `e` also has `toString()`, `getCause()`, `getStackTrace()`, etc.
+
+---
+
+### 10. `if`/`else` vs. `try`/`catch` — Different Intent
+
+| | `if`/`else` | `try`/`catch` |
+|---|---|---|
+| Philosophy | **Prevent** — don't let the bad operation happen | **Attempt, then react** — try it; if it throws, handle it |
+| Exception object created? | No | Yes |
+
+---
+
+#### 11. `finally` — Cleanup That Always Runs
+
+```java
+try {
+    // risky code
+} catch (ArithmeticException e) {
+    // handle
+} finally {
+    // always runs
+}
+```
+
+`finally` runs **whether or not an exception occurred**:
+
+| Scenario | try | catch | finally |
+|---|---|---|---|
+| No exception | runs fully | skipped | runs |
+| Exception, caught | runs until the throw | runs | runs |
+| Exception, not caught | runs until the throw | — | runs (then exception propagates) |
+
+#### Why it exists — resource cleanup
+
+Resources — files, database connections, locks — must be released. If an exception hits before your `close()` call inside `try`, the resource stays open (leak). Put cleanup in `finally`:
+
+```java
+Connection conn = null;
+try {
+    conn = getConnection();
+    // use connection — an exception here skips any close() placed below
+} catch (SQLException e) {
+    // handle
+} finally {
+    // close conn here — guaranteed to run
+}
+```
+
+Typical `finally` jobs: close files/DB connections, release locks, write cleanup logs.
+
+---
+
+### 12. The Catch Must Match the Exception
+
+```java
+try {
+    System.out.println(5 / 0);            // throws ArithmeticException
+} catch (NullPointerException e) {         // wrong type — doesn't match
+    System.out.println("nulls");
+}
+System.out.println("Step 2");
+```
+
+The JVM looks for a `catch` that handles `ArithmeticException`; finding only `NullPointerException`, it treats the exception as **unhandled** → stack trace, program terminates, `Step 2` never prints. Writing a `catch` doesn't help unless its type matches what's thrown.
+
+#### Multiple `catch` blocks
+
+```java
+try {
+    // risky code
+} catch (NullPointerException e) {
+    System.out.println("No nulls allowed");
+} catch (ArithmeticException e) {
+    System.out.println("Division by zero is not allowed");
+}
+```
+
+Handles whichever of the listed exception types occurs.
+
+#### `catch` and `finally` are optional (but `try` needs at least one)
+
+```java
+try { System.out.println(5 / 0); }
+finally { System.out.println("cleanup"); }   // compiles — try + finally, no catch
+```
+
+Here there's no handler, so after `finally` runs, the exception still propagates and the program crashes — but `finally` **did** run first. `finally` runs in essentially every case; rare exceptions (like the JVM being killed via `System.exit()`) come later.
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** Why is `OutOfMemoryError` not something you "handle" like an `ArithmeticException`?
+
+*Answer:* It's an `Error` — a serious, unrecoverable JVM-level condition (heap exhausted). Your business logic can't meaningfully fix it, so handling isn't the goal; exceptions, by contrast, are recoverable.
+
+> **Q2.** `methodA` calls `methodB`; `methodB` throws and neither handles it, but `main` wraps `methodA` in `try`/`catch`. Which lines in `methodB` after the throw point run?
+
+*Answer:* None. The JVM unwinds `methodB` and `methodA` off the stack while looking for a handler, so the remaining lines of `methodB` are abandoned; execution resumes inside `main`'s `catch`.
+
+> **Q3.** Where do you look first in a stack trace to find the origin of an exception?
+
+*Answer:* The first `at …` line — it names the class, method, file and line number where the exception was thrown. Subsequent lines show the chain of callers.
+
+> **Q4.** Your `try` throws `ArithmeticException` but you only wrote `catch (NullPointerException e)`. What happens?
+
+*Answer:* No matching handler exists, so the exception is unhandled: default stack trace, program terminates (after any `finally`).
+
+> **Q5.** Why use `finally` instead of putting `conn.close()` at the end of the `try` block?
+
+*Answer:* If an exception occurs earlier in `try`, the rest of the block is skipped — the `close()` never executes and the resource leaks. `finally` runs regardless.
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] Java classifies problems into **Exception** (recoverable, handle it) and **Error** (serious, unrecoverable — e.g., `OutOfMemoryError`, `StackOverflowError`). Both are objects.
+- [ ] Unhandled exception ⇒ normal flow stops, lines after the throw point never run, JVM's default handler prints the stack trace and terminates the program.
+- [ ] Handling an exception means **you decide what happens next** — not removing the exception.
+- [ ] When an exception is thrown: JVM creates an exception object, searches the **call stack** from the current method upward for a handler, popping methods as it goes.
+- [ ] A **stack trace** reads origin-first: exception class + message, then `at Class.method(File.java:line)` entries from throw point up to `main`.
+- [ ] `try` holds risky code; `catch (Type e)` runs only if an exception of a matching type is thrown; if none occurs, `catch` is skipped.
+- [ ] Where you catch matters: catch near the failure and the rest of that method still runs; catch further up and intervening methods are abandoned mid-execution.
+- [ ] `e.getMessage()` gives the message; `e.printStackTrace()` prints the trace without crashing — in production, log it.
+- [ ] `if`/`else` **prevents** the bad situation; `try`/`catch` **reacts** to it after it's attempted.
+- [ ] `finally` runs whether or not an exception occurs — use it for **cleanup** (close files, DB connections, release locks).
+- [ ] A `catch` only helps if its type **matches** the thrown exception; multiple `catch` blocks can handle different types.
+- [ ] `catch` and `finally` are each optional, but `try` requires at least one of them.
+
+---
+
+#### Practice Questions
+
+**Basic**
+1. Name two `Error` types and explain why they're not "handled" in normal code.
+
+2. What does the JVM do, step by step, when `int x = 5 / 0;` executes inside `main` with no `try`/`catch`?
+
+3. In `at Demo2.methodB(Demo2.java:13)`, what does each piece tell you?
+
+**Intermediate**
+
+4. Given `main → A → B` with a division by zero in `B` and a `catch` only in `main`, trace the call stack pop-by-pop as the JVM searches for a handler.
+
+5. Rewrite a division so it's **prevented** with `if`/`else`, then again with `try`/`catch`. When would you choose each?
+
+6. Write a `try`/`catch`/`finally` where the DB connection must be closed even when the query throws. What goes wrong if you close it at the end of `try`?
+
+**Advanced / Interview-style**
+
+7. Why does catching an exception inside `methodB` allow `methodB`'s later statements to run, but catching it in `main` does not? Explain using the call stack.
+
+8. A teammate writes `catch (NullPointerException e)` around division code and says "I've handled errors." Is the division-by-zero handled? What actually happens?
+
+9. Does `finally` still run if there's a `try` with no `catch` and the exception propagates? Predict the output order for `try { 5/0 } finally { print("F") }` followed by `print("after")`.
+
+## 44. Exception Hierarchy, `throw` / `throws`, Custom Exceptions & try-with-resources
+
+
+
+### 1. Nested `try`-`catch`
+
+`try` blocks can be nested like any other block. Only two cases matter:
+
+#### Case 1: the inner `try` handles its own exception
+
+```java
+try {
+    System.out.println("outer try starts");
+    try {
+        System.out.println("inner try starts");
+        System.out.println(5 / 0);                                   // ArithmeticException
+        System.out.println("inner try ends");                        // skipped
+    } catch (ArithmeticException e) {
+        System.out.println("divide by zero not allowed (inner)");
+    }
+    System.out.println("outer try ends");                            // runs
+} catch (ArithmeticException e) {
+    System.out.println("divide by zero not allowed (outer)");        // never runs
+}
+```
+```
+outer try starts
+inner try starts
+divide by zero not allowed (inner)
+outer try ends
+```
+The inner `catch` handled it, so from the outer block's point of view **nothing went wrong** — its `catch` never runs.
+
+#### Case 2: the inner `catch` doesn't match → exception propagates outward
+
+```java
+try {
+    System.out.println("outer try starts");
+    try {
+        System.out.println("inner try starts");
+        System.out.println(5 / 0);
+    } catch (NullPointerException e) {                // wrong type
+        System.out.println("nulls not allowed");
+    }
+    System.out.println("outer try ends");             // skipped
+} catch (ArithmeticException e) {
+    System.out.println("divide by zero not allowed (outer)");
+}
+```
+```
+outer try starts
+inner try starts
+divide by zero not allowed (outer)
+```
+The JVM asks the inner handler → no match → asks the enclosing handler → match. The rest of the outer `try` is abandoned.
+
+You can nest inside `catch` blocks too — same rules apply.
+
+> **Reality check:** nested try-catch is legal but **avoid it** — predicting which handler catches what means tracing the whole control flow. Prefer flat structure or extracting methods.
+
+**Predicting output:** just ask, "who handles *this specific* exception?" — start at the innermost matching `catch` and move outward.
+
+---
+
+### 2. The Exception Hierarchy
+
+```
+                      Throwable                    (class, root of everything throwable)
+                      /        \
+                  Error        Exception
+                (unrecoverable)    |
+                                   ├── RuntimeException            ← UNCHECKED
+                                   │      ├── NullPointerException
+                                   │      ├── ArithmeticException
+                                   │      ├── IndexOutOfBoundsException
+                                   │      │      ├── ArrayIndexOutOfBoundsException
+                                   │      │      └── StringIndexOutOfBoundsException
+                                   │      ├── IllegalArgumentException
+                                   │      │      └── NumberFormatException
+                                   │      ├── IllegalStateException
+                                   │      └── ClassCastException
+                                   │
+                                   └── (checked — extend Exception directly)
+                                          ├── IOException
+                                          │      ├── FileNotFoundException
+                                          │      └── EOFException
+                                          ├── SQLException
+                                          └── ClassNotFoundException
+```
+
+- **`Throwable`** is the root: anything you can `throw` must extend it. (If it isn't a `Throwable`, you can't throw it.)
+- You'll almost never throw an `Error` yourself (they come from the JVM); you work with **`Exception`s**.
+- `Throwable`/`Exception` give you the three methods you use constantly: **`getMessage()`**, **`printStackTrace()`**, **`toString()`**.
+
+#### Common unchecked (`RuntimeException`) exceptions
+
+| Exception | When |
+|---|---|
+| `NullPointerException` | Calling a method/accessing a field on `null` |
+| `ArithmeticException` | Illegal arithmetic, e.g., `/ by zero` |
+| `ArrayIndexOutOfBoundsException` | `arr[4]` on a 4-element array |
+| `StringIndexOutOfBoundsException` | `s.charAt(5)` on `"Hello"` |
+| `NumberFormatException` | `Integer.parseInt("abc")` |
+| `IllegalArgumentException` | Method received an illegal/inappropriate argument (e.g., `Thread.sleep(-1500)`) |
+| `IllegalStateException` | Method called when the object isn't in a valid state (e.g., `iterator.remove()` before any `next()`) |
+| `ClassCastException` | `Integer i = (Integer) someObjectHoldingAString;` |
+
+#### Common checked exceptions
+
+| Exception | When |
+|---|---|
+| `IOException` (parent) | Any I/O failure |
+| `FileNotFoundException` | Opening a file that doesn't exist |
+| `EOFException` | Reading past end of a file/stream unexpectedly |
+| `SQLException` | Trouble talking to a SQL database |
+| `ClassNotFoundException` | JVM can't locate a class (rare) |
+
+You don't memorize the whole tree — know the famous ones and how the structure works.
+
+---
+
+#### 3. Checked vs. Unchecked
+
+| | **Unchecked** (`RuntimeException` + subclasses) | **Checked** (other `Exception` subclasses) |
+|---|---|---|
+| Detected | At **runtime** | At **compile time** |
+| Compiler forces you to handle? | **No** | **Yes** — must `try/catch` **or** declare `throws` |
+| If unhandled | Stack trace, program stops | Code **won't compile** |
+| Typical cause | Programming bugs / bad data | External things you can't guarantee (files, DB, network) |
+
+```java
+FileReader fr = new FileReader("abc.txt");   // COMPILE ERROR:
+// Unhandled exception: FileNotFoundException
+```
+
+Why the compiler insists: you're reaching outside your program — Java can't promise `abc.txt` exists, so it *forces* you to decide what happens if it doesn't.
+
+---
+
+### 4. Catch Matching, Ordering and Multi-catch
+
+#### A `catch` can catch the exact type or any **parent** type
+
+```java
+try { System.out.println(5 / 0); }
+catch (ArithmeticException e) { ... }     // exact
+catch (RuntimeException e)    { ... }     // parent — also works
+catch (Exception e)           { ... }     // grandparent — also works
+catch (Throwable e)           { ... }     // works, but see below
+```
+(A parent reference can point to a child object.)
+
+**Don't `catch (Throwable)`** — it would swallow `Error`s too (`OutOfMemoryError`, `StackOverflowError`), which you shouldn't try to handle. The widest you should normally go is `Exception`.
+
+#### Multiple `catch` blocks — most specific first
+
+```java
+try {
+    // risky code
+} catch (ArithmeticException e)   { System.out.println("divide by zero"); }
+catch (NullPointerException e)    { System.out.println("nulls not allowed"); }
+catch (Exception e)               { System.out.println("some generic exception"); }
+```
+
+- Only **one** `catch` ever runs per thrown exception.
+- The JVM checks them **top to bottom** and uses the first that matches.
+- Put **children before parents**. A parent first makes later child blocks unreachable:
+
+```java
+catch (Exception e)            { ... }
+catch (ArithmeticException e)  { ... }   // COMPILE ERROR: unreachable — already handled by Exception
+```
+Siblings (e.g., `ArithmeticException` and `NullPointerException`) can appear in any order relative to each other.
+
+#### Multi-catch (Java 7+)
+
+```java
+catch (ArithmeticException | NullPointerException e) {
+    System.out.println(e.getMessage());   // message depends on which was actually thrown
+}
+```
+- Only **unrelated (sibling)** types allowed.
+- Parent + child in the same `|` list is a **compile error** — the child is redundant.
+
+---
+
+### 5. `throw` — Raising an Exception Yourself
+
+Until now the JVM threw exceptions (e.g., on `/ 0`). You can throw them from your own code with **`throw`**:
+
+```java
+static void checkEligibility(int age) {
+    if (age < 0) {
+        throw new IllegalArgumentException("Age cannot be negative");
+    }
+    if (age >= 18) {
+        System.out.println("You are eligible to vote");
+    }
+}
+```
+
+**Why throw instead of printing a message?** Printing is just text on a screen — the *caller* never learns something went wrong. An exception is how code **communicates failure to its caller**. That's exactly what Java does itself: `5 / 0` doesn't print "division not allowed," it throws `ArithmeticException`.
+
+Flow:
+```
+caller → checkEligibility(-5)
+              └─ throw new IllegalArgumentException("Age cannot be negative")
+caller doesn't handle it → propagates → stack trace on console
+caller wraps in try/catch → handled → program continues
+```
+
+#### Anti-pattern: throw and catch in the *same* method
+
+```java
+static void checkEligibility(int age) {
+    try {
+        if (age < 0) throw new IllegalArgumentException("Age cannot be negative");
+    } catch (IllegalArgumentException e) {
+        System.out.println(e.getMessage());     // caller never finds out
+    }
+}
+```
+You raised the alarm and then silenced it yourself — the caller can't react. If you throw, the point is to let the **caller** deal with it.
+
+---
+
+### 6. `throws` — Delegating Responsibility
+
+`throws` goes in the **method signature**: *"this method may throw this exception, and I'm not handling it — whoever calls me must."*
+
+```java
+static void readFile() throws FileNotFoundException {
+    FileReader fr = new FileReader("abc.txt");   // compiles now — responsibility delegated
+}
+
+public static void main(String[] args) {
+    try {
+        readFile();
+    } catch (FileNotFoundException e) {
+        System.out.println("File not found");
+    }
+}
+```
+
+- `throws` satisfies the compiler for **checked** exceptions — either handle it or declare it.
+- The caller now *must* handle it (or declare `throws` itself and pass it up further).
+
+#### The chain ends somewhere
+
+```java
+public static void main(String[] args) throws FileNotFoundException {   // BAD
+    readFile();
+}
+```
+`main` is called by the JVM — nobody above it can handle anything, so the exception goes straight to the console as a stack trace. **Don't put `throws` on `main`**; handle it there.
+
+> The deep stack trace you'd see (`FileInputStream.open0` → `FileInputStream.open` → … → `FileReader.<init>` → `readFile` → `main`) shows the exception originating inside JDK internals and bubbling up through every caller.
+
+#### `throw` vs. `throws`
+
+| | `throw` | `throws` |
+|---|---|---|
+| What | **Statement** that raises an exception object | **Declaration** in a method signature |
+| Where | Inside a method body | After the parameter list |
+| Followed by | An exception **object** (`new X(...)`) | An exception **class name** |
+| Meaning | "An error occurred — here it is" | "I may throw this — caller, you handle it" |
+
+---
+
+### 7. Custom Exceptions
+
+Built-in names are generic. `IllegalArgumentException` says *an argument was bad* — not what your **business** cares about. Custom exceptions give failures domain meaning:
+
+| Scenario | Custom exception |
+|---|---|
+| UPI/bank withdrawal exceeds balance | `InsufficientBalanceException` |
+| Payment gateway call fails | `PaymentFailedException` |
+| Zomato/Swiggy-style lookup finds nothing | `OrderNotFoundException` |
+| Age validation | `InvalidAgeException` |
+
+#### Creating one
+
+An exception is just a **class** extending `Exception`:
+
+```java
+class InvalidAgeException extends Exception {
+    public InvalidAgeException(String message) {
+        super(message);        // pass message up to Exception → ... → Throwable
+    }
+}
+```
+That's usually all you need. `Exception` isn't abstract and already implements everything (`getMessage()`, `printStackTrace()`...) — no methods to override.
+
+**The message travels up the constructor chain** (`InvalidAgeException` → `Exception` → `Throwable`), where `Throwable` stores it and knows how to print it and the stack trace.
+
+#### Using it
+
+```java
+static void checkEligibility(int age) throws InvalidAgeException {   // checked → must declare
+    if (age < 0) {
+        throw new InvalidAgeException("Age cannot be negative");
+    }
+    System.out.println("You are eligible to vote");
+}
+
+public static void main(String[] args) {
+    try {
+        checkEligibility(-5);
+    } catch (InvalidAgeException e) {
+        System.out.println(e.getMessage());     // Age cannot be negative
+    }
+}
+```
+
+Because `InvalidAgeException extends Exception` (not `RuntimeException`), it's **checked** — the compiler demands `throws` or a `try/catch`. To make a custom exception **unchecked**, extend `RuntimeException` instead.
+
+#### Carrying extra data
+
+```java
+class InvalidAgeException extends Exception {
+    private int age;
+
+    public InvalidAgeException(String message, int age) {
+        super(message);
+        this.age = age;
+    }
+
+    public int getAge() { return age; }
+}
+```
+```java
+throw new InvalidAgeException("Age cannot be negative", age);
+// ...
+catch (InvalidAgeException e) {
+    System.out.println(e.getMessage() + " — entered age was " + e.getAge());
+}
+```
+Simple message-only exceptions are the most common in production; add fields only when the handler genuinely needs the data.
+
+---
+
+### 8. try-with-resources
+
+A **resource** is any object you must **close** after use: files, DB connections, network sockets.
+
+**Old way** — manual cleanup in `finally` (easy to forget → resource leaks):
+
+```java
+FileReader fr = null;
+try {
+    fr = new FileReader("abc.txt");
+    // use it
+} catch (FileNotFoundException e) {
+    // handle
+} finally {
+    if (fr != null) fr.close();      // and close() itself can throw IOException...
+}
+```
+
+**Modern way** — declare the resource in the `try` parentheses; Java closes it automatically, whether or not an exception occurs:
+
+```java
+try (FileReader fr = new FileReader("abc.txt")) {
+    // use fr
+} catch (FileNotFoundException e) {
+    System.out.println("File not found");
+}
+```
+No `finally`, no manual `close()`. (The resource type must implement `AutoCloseable`; I/O and JDBC classes do.)
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** Inner `try` has `catch (NullPointerException e)` but `5/0` occurs inside it; the outer `try` has `catch (ArithmeticException e)`. Which handler runs, and do the remaining inner-`try` lines execute?
+
+*Answer:* The outer `ArithmeticException` handler runs. The inner `catch` doesn't match, so the exception propagates outward; the rest of the inner and outer `try` blocks are skipped.
+
+> **Q2.** Why does `catch (Exception e)` followed by `catch (ArithmeticException e)` fail to compile?
+
+*Answer:* `Exception` already catches every `ArithmeticException`, so the second block is unreachable. Always order catches from most specific child to most general parent.
+
+> **Q3.** Checked vs. unchecked — what does the compiler demand of each?
+
+*Answer:* Checked exceptions must be handled with `try/catch` or declared with `throws` or the code won't compile. Unchecked (`RuntimeException` family) exceptions aren't verified by the compiler.
+
+> **Q4.** Difference between `throw` and `throws`?
+
+*Answer:* `throw` raises an exception object inside a method body. `throws` appears in the method signature and declares that the method may throw a type of exception which the caller must handle.
+
+> **Q5.** Why is throwing an exception and catching it in the same method an anti-pattern?
+
+*Answer:* The whole point of throwing is to signal failure to the caller. Catching it yourself consumes the exception — the caller never finds out anything went wrong.
+
+> **Q6.** Why use try-with-resources instead of closing in `finally`?
+
+*Answer:* The resource is closed automatically in all cases, removing the risk of forgetting to close it (and the boilerplate of null-checking and nested try/catch inside `finally`).
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] Nested try-catch is legal but hard to reason about — **avoid it**; to predict output, find which `catch` matches the thrown type, moving outward.
+- [ ] Hierarchy: `Throwable` → `Error` / `Exception`; `Exception` → `RuntimeException` (unchecked) and everything else (checked).
+- [ ] **Unchecked** (`RuntimeException` family): `NullPointerException`, `ArithmeticException`, `*IndexOutOfBoundsException`, `IllegalArgumentException` (`NumberFormatException`), `IllegalStateException`, `ClassCastException` — compiler doesn't force handling.
+- [ ] **Checked**: `IOException` (`FileNotFoundException`, `EOFException`), `SQLException`, `ClassNotFoundException` — compiler **forces** `try/catch` or `throws`.
+- [ ] A `catch` can name the exact exception type or any parent; **never catch `Throwable`** (it swallows `Error`s).
+- [ ] Multiple catches: **specific first, general last**; parent-before-child is a compile error. Only one catch runs.
+- [ ] Multi-catch `A | B` works for **sibling** types only (Java 7+).
+- [ ] `throw new X(...)` raises an exception; `throws X` in the signature delegates handling to the caller.
+- [ ] Don't throw and catch in the same method; don't declare `throws` on `main`.
+- [ ] Custom exceptions: `class MyException extends Exception { MyException(String m){ super(m); } }` — extend `RuntimeException` for unchecked.
+- [ ] Use custom exception **names** that express business meaning (`InsufficientBalanceException`); add fields only if the handler needs them.
+- [ ] Prefer **try-with-resources** for anything that must be closed — no manual `finally` cleanup.
+
+---
+
+#### Practice Questions
+
+**Basic**
+
+1. Name the root class of all throwable things and its two direct subclasses.
+
+2. Which of these are checked: `NullPointerException`, `IOException`, `SQLException`, `ArithmeticException`?
+
+3. What is wrong with `catch (Exception e) {}` placed above `catch (ArithmeticException e) {}`?
+
+**Intermediate**
+
+4. Write a method `withdraw(int amount)` that throws `InsufficientBalanceException` (checked) when `amount > balance`. Show the caller handling it.
+
+5. Explain why `readFile()` compiles after adding `throws FileNotFoundException` — and what `main` must now do.
+
+6. Rewrite a file-reading snippet that closes the reader in `finally` using try-with-resources.
+
+**Advanced / Interview-style**
+
+7. A teammate writes `throw` + `catch` for the same exception type in the same method "to log it." What's the problem, and what would you do instead?
+
+8. When would you extend `RuntimeException` rather than `Exception` for a custom exception? Discuss the trade-off for callers.
+
+9. `main` declares `throws Exception`. Who handles an exception thrown from it, and why is this usually a bad idea?
+
+## 45. Memory Management in Java — Stack & Heap
+
+
+
+### 1. Why This Matters (a production scenario)
+
+A Flipkart-style order service runs fine in testing, then during a sale it slows to a crawl, GC pauses spike, and eventually pods die with `java.lang.OutOfMemoryError: Java heap space`. The usual cause isn't "Java is bad at memory" — it's a long-lived `List` that nobody ever stops referencing.
+
+The JVM manages memory *for* you, but it can't write memory-friendly code for you. Understanding where things live is what lets you:
+
+- avoid **memory leaks** (yes, they happen in Java),
+- avoid **performance degradation** from constant GC,
+- understand and prevent **`OutOfMemoryError`** (heap) and **`StackOverflowError`** (stack).
+
+---
+
+### 2. What the JVM Does With Memory
+
+Three jobs:
+
+| Job | Example |
+|---|---|
+| **Allocate** | `int x = 4;` → space for `x`. `Student s1 = new Student();` → object on the heap |
+| **Use / update** | `x = x + 1;` → fetch `x`, add 1, store back |
+| **Deallocate** | Free memory for objects you no longer need |
+
+#### Manual vs. automatic deallocation
+
+In C++, **you** free memory (`delete` / `free`). Forget → leak. Free too early → crash on a dangling pointer. Error-prone.
+
+Java's choice: **Garbage Collection**. The JVM decides what to free; you focus on logic.
+
+> **But GC isn't magic.** It can only free objects that are *unreachable*. If your code keeps a reference to something huge, GC can't touch it.
+
+---
+
+### 3. Why Is Memory Divided Into Areas?
+
+Different data has different lifetimes and access patterns:
+
+- Short-lived locals (die with the method call).
+- Objects of unpredictable lifetime (milliseconds → entire program).
+- Class-level metadata (lives as long as the class is loaded).
+- Per-thread execution state.
+
+One big blob would force GC to constantly scan everything, short-lived and long-lived alike. Splitting memory lets each area use a strategy that fits its data.
+
+---
+
+### 4. The JVM Memory Areas
+
+```
+   ┌──────────────────────── SHARED by all threads ───────────────────────┐
+   │                                                                        │
+   │   HEAP                    objects, instance variables, arrays,         │
+   │   (GC works here)         strings (incl. string pool)                  │
+   │                                                                        │
+   │   METHOD AREA             class metadata / blueprint, method code,     │
+   │                           static data                                  │
+   └────────────────────────────────────────────────────────────────────────┘
+
+   ┌──────────────── PER-THREAD (each thread gets its own) ────────────────┐
+   │   STACK                   method call frames (locals, params,          │
+   │                           return address)                              │
+   │   PROGRAM COUNTER (PC)    address of the instruction currently running │
+   │   (Native method stack — used when Java calls C/C++ code; ignore)      │
+   └────────────────────────────────────────────────────────────────────────┘
+```
+
+**Why the shared/per-thread split matters:**
+- **Stack & PC are per-thread** → local variables are naturally thread-safe; no race conditions on them.
+- **Heap & Method Area are shared** → objects in the heap can be touched by multiple threads, so critical objects need locking/synchronization (covered in multithreading).
+
+---
+
+### 5. Method Area — Class Blueprints
+
+Stores class-level information, loaded when the JVM first needs a class:
+
+- class name, parent class (e.g., `Object`), implemented interfaces,
+- fields (names/types), methods (name, parameters, return type, bytecode),
+- **static** variables and methods,
+- (plus bytecode / JIT-related data).
+
+```java
+class Student {
+    int age;              // instance variable → lives inside each Student OBJECT (heap)
+    static int count;     // class-level → Method Area (per the lecture's model)
+    void m1() { ... }     // method definition → Method Area, NOT inside any object
+}
+```
+
+**Key rule:** methods are **never stored inside objects**. An object stores only its **instance variables**; every object of that class shares the single copy of the method code.
+
+> **Implementation note (HotSpot, Java 8+):** class metadata lives in **Metaspace** (native memory); static *fields* physically live inside the class's `java.lang.Class` object on the heap. The conceptual model above — "class-level stuff is separate from per-object stuff" — is what matters for interviews.
+
+---
+
+### 6. Stack — The Execution Memory
+
+The stack is a literal stack (LIFO), made of **stack frames** — one per method call.
+
+```
+main() calls m1(), m1() calls m2()
+
+      push                         pop (as each returns)
+  ┌──────────┐                  ┌──────────┐
+  │   m2     │ ← current        │   m1     │ ← current again
+  ├──────────┤                  ├──────────┤
+  │   m1     │                  │  main    │
+  ├──────────┤                  └──────────┘
+  │  main    │
+  └──────────┘
+```
+
+#### What a frame holds
+
+| Item | Why |
+|---|---|
+| **Local variables** | `int a = 10;` — primitives live here |
+| **Method parameters** | Behave like locals (copies of the caller's values) |
+| **Reference variables** | The *reference* `s1` lives here; the **object** it points to lives on the heap |
+| **Return address** | Which instruction in the caller to resume at after this method returns |
+
+#### Why do we need a return address? (Isn't "pop → back to caller" enough?)
+
+The stack tells you *which method* to return to, not *where inside it*:
+
+```java
+main() {
+    m1();                       // line 1  ← call
+    System.out.println("Hello"); // line 2  ← must resume HERE, not at line 1
+    m1();                       // line 3
+}
+```
+When `m1` finishes, resuming at line 1 would call it again forever. The frame stores the **return address (line 2)**, and the **Program Counter** is updated to it.
+
+#### Program Counter (PC)
+
+Holds the address of the **instruction currently executing** in that thread, so the JVM knows where to continue after returning from a call, switching threads, etc. (Conceptually "line numbers" — internally bytecode addresses.)
+
+---
+
+### 7. Worked Example — Stack Only
+
+```java
+public static void main(String[] args) {
+    int a = 10;
+    int result = add(a, 20);
+}
+static int add(int x, int y) {
+    int sum = x + y;
+    return sum;
+}
+```
+
+```
+1. main starts          │ main frame: a=?, result=?        │
+2. a = 10               │ main frame: a=10, result=?       │
+3. call add(a, 20)      │ add frame: x=10, y=20, sum=?     │  ← pushed on top of main
+                        │ main frame: a=10, result=?       │
+4. sum = x + y          │ add frame: x=10, y=20, sum=30    │
+5. return sum           │ add frame popped → 30 goes to result
+                        │ main frame: a=10, result=30      │
+6. main ends            │ main frame popped → stack empty  │
+```
+
+Observations:
+- `a` in `main` and `x` in `add` are **different variables** — Java is **pass-by-value**: `x` is a copy of `a`'s value.
+- The stack **grows and shrinks automatically** with calls/returns.
+- **No garbage collection is needed for the stack** — popping a frame destroys its locals instantly.
+
+#### Why stack for locals and not the heap?
+
+- Push/pop are **O(1)** and extremely fast; method calls are frequent.
+- Locals are **short-lived** — they're useless the moment the method ends, so automatic cleanup is perfect.
+- Putting them on the heap would force the GC to clean up massive amounts of trivial temporary data.
+
+---
+
+#### 8. StackOverflowError
+
+The stack has a **fixed, limited size**. If you push frames faster than they pop, it fills up:
+
+```java
+static void f1() { f1(); }     // recursion with no base case
+```
+```
+f1 → f1 → f1 → f1 → ... → java.lang.StackOverflowError
+```
+
+Classic cause: **recursion without (or with a wrong) base case**. It's an `Error`, not an `Exception` — don't try to handle it; fix the recursion.
+
+---
+
+### 9. Heap — Where Objects Live
+
+For data whose lifetime is **unpredictable** — some objects die in milliseconds, some live for the entire program — Java provides the heap, managed by the **garbage collector**.
+
+#### What goes on the heap
+
+- Everything created with `new` (objects)
+- **Instance variables** (they're part of their object)
+- **Arrays** (non-primitive-like objects, even `int[]`)
+- **Strings** — `new String(...)` on the normal heap; string **literals** in the **string pool**, a special region within the heap
+
+#### Properties of the heap
+
+| Property | Detail |
+|---|---|
+| **Shared** across threads | Needs synchronization for shared mutable objects |
+| **Dynamic / growable** | Can grow (up to a limit) as you create objects; the stack is much less flexible |
+| **GC-managed** | GC works only on the heap — never on the stack, method area, or PC |
+| **Slower than stack** | Allocation/deallocation is more complex and GC adds overhead |
+
+---
+
+### 10. Full Walkthrough: What Happens When You Run a Program
+
+```java
+public class Demo {
+    public static void main(String[] args) {
+        int x = 5;
+        Student s1 = new Student();
+        s1.name = "Aditya";
+    }
+}
+```
+
+**Steps**
+
+1. `javac Demo.java` → produces `Demo.class` (bytecode).
+2. `java Demo` → **JVM starts**.
+3. **Class loading**: the class loader locates `Demo.class`, reads its bytecode, and loads the class **metadata into the Method Area** (name, parent `Object`, `main` method, etc.).
+4. The JVM creates the **main thread**, with its own **stack** and **PC**. (Heap and Method Area already exist.)
+5. A **stack frame for `main`** is pushed: slots for `x` and `s1` (uninitialized so far).
+6. `int x = 5;` → `x = 5` in the frame. PC advances.
+7. `Student s1 = new Student();` →
+   - `Student` is loaded into the **Method Area** (first use),
+   - a `Student` **object is created on the heap**, instance fields get defaults (`null`, `0`), constructor runs,
+   - **`s1` in the stack frame now points to that heap object.**
+8. `s1.name = "Aditya";` → follow `s1` to the object; the string `"Aditya"` goes into the **string pool** (part of the heap), and the object's `name` field **references** it.
+9. `main` ends → its **frame is popped**: `x` and the reference `s1` vanish.
+
+```
+ STACK (main thread)        HEAP
+ ┌──────────────┐         ┌──────────────────────┐
+ │ main frame   │         │ Student object       │
+ │  x  = 5      │         │   name ──────────────┼──► "Aditya" (string pool)
+ │  s1 ─────────┼────────►│   age  = 0           │
+ └──────────────┘         └──────────────────────┘
+        │ main ends: frame popped, s1 gone
+        ▼
+ Student object: no references left → eligible for GC
+```
+
+The object isn't freed immediately — it's just **eligible**; the GC reclaims it later when it decides to run.
+
+---
+
+### 11. Object Creation Details
+
+```java
+Student s1 = new Student("Aditya", 28);
+```
+
+1. `new` allocates a `Student` on the heap; fields get **default values** (`null`, `0`).
+2. The constructor runs and assigns the real values (`name`, `28`).
+3. The **reference** `s1` is stored on the **stack**.
+
+```java
+Student s2 = s1;    // NO new object — s2 is just a second reference to the SAME object
+```
+A new object is created only when `new` is executed.
+
+---
+
+### 12. When Does an Object Become Garbage?
+
+An object is **eligible** for GC when **no reachable reference** points to it.
+
+**Case 1 — set the reference to null**
+```java
+Student s1 = new Student();
+s1 = null;     // object has no references → eligible
+```
+
+**Case 2 — the method returns**
+```java
+void work() {
+    Student s1 = new Student();
+}              // frame popped → s1 gone → object eligible
+```
+
+Eligible ≠ immediately deleted. The GC frees it whenever it next runs and chooses to.
+
+#### The heap is really a graph
+
+Objects reference other objects, not just the stack does:
+
+```
+ stack: s1 ──► [A] ──► [B] ──► [C]
+```
+`B` and `C` stay alive as long as they're **reachable** through some chain from a live reference (a "root"). Cut the chain at the top and the whole subgraph becomes garbage.
+
+---
+
+#### 13. Memory Leaks in Java
+
+GC reclaims **unreachable** objects, so a Java "leak" means: **objects that are still reachable but no longer needed.**
+
+```java
+List<Student> students = new ArrayList<>();   // held in main / a static / a long-lived object
+while (true) {
+    students.add(new Student());              // list only ever grows, reference never dropped
+}
+```
+
+The list keeps everything reachable → GC can't free it → heap fills → **`OutOfMemoryError: Java heap space`**.
+
+Remedies: drop references when done (set to `null` / let scope end), don't let long-lived collections grow unbounded, remove entries you no longer need.
+
+Also: **creating lots of throwaway objects** makes GC run frequently, and GC competes with your program for resources → slower throughput.
+
+---
+
+### 14. Demo — Tuning the Heap and Triggering `OutOfMemoryError`
+
+```java
+import java.util.*;
+
+public class Demo {
+    public static void main(String[] args) {
+        List<int[]> list = new ArrayList<>();
+        int count = 0;
+        while (true) {
+            list.add(new int[250_000]);                    // ~1 MB per block (250,000 ints × 4 bytes)
+            count++;
+            System.out.println("Allocated block " + count);
+        }
+    }
+}
+```
+
+```
+javac Demo.java
+java -Xms2m -Xmx4m Demo
+```
+- `-Xms` = **minimum (initial) heap size**, `-Xmx` = **maximum heap size**.
+
+Output: a handful of "Allocated block N" lines, then `java.lang.OutOfMemoryError: Java heap space`.
+
+**Why not exactly 4 blocks?** Each block is ~1,000,000 bytes (≈0.95 MiB), and 4 MB of heap is 4×1,048,576 bytes with other objects and JVM overhead sharing it — so the exact count at failure varies slightly. (The lecture saw the 5th block allocated before failure.) The point: a bounded heap + an ever-growing reachable list ⇒ OOM.
+
+To see `StackOverflowError`, use recursion with no base case.
+
+---
+
+### 15. Stack vs. Heap — Summary
+
+| | **Stack** | **Heap** |
+|---|---|---|
+| Holds | Frames: locals, params, references, return address | Objects, instance variables, arrays, strings |
+| Scope | **Per thread** | **Shared** across threads |
+| Lifetime | Tied to method call (LIFO) | Until unreachable (+ GC runs) |
+| Cleanup | Automatic on frame pop | **Garbage collector** |
+| Speed | Faster (push/pop O(1)) | Slower (allocation + GC overhead) |
+| Size | Small, fixed → `StackOverflowError` | Large, growable → `OutOfMemoryError` |
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** `Student s1 = new Student();` — what lives where?
+
+*Answer:* The `Student` object (with its instance variables) lives on the **heap**; the reference `s1` lives on the **stack** (in the current method's frame); the class definition/metadata lives in the **Method Area**.
+
+> **Q2.** Why does a stack frame need a return address?
+
+*Answer:* Popping a frame reveals *which method* to return to, but not *which instruction within it* to resume at. The return address (restored into the Program Counter) tells the JVM exactly where to continue.
+
+> **Q3.** Why don't locals need garbage collection?
+
+*Answer:* They live in stack frames; when the method returns, the frame is popped and its locals disappear instantly. Only heap objects need the GC.
+
+> **Q4.** Does `s1 = null;` immediately free the object?
+
+*Answer:* No — it just removes a reference, making the object *eligible* for GC (if nothing else references it). The GC reclaims it later, at its discretion.
+
+> **Q5.** How can Java leak memory if it has a garbage collector?
+
+*Answer:* By holding references to objects you no longer need (e.g., a collection that only grows). They remain reachable, so GC can't free them, eventually causing `OutOfMemoryError`.
+
+> **Q6.** Why are Java's local variables thread-safe by default but heap objects are not?
+
+*Answer:* Each thread has its own stack, so locals are private. The heap is shared, so multiple threads can touch the same object concurrently and may need synchronization.
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] JVM memory: **Heap** and **Method Area** (shared across threads); **Stack** and **Program Counter** (per thread); plus a native method stack you can ignore.
+- [ ] **Heap**: objects, instance variables, arrays, strings (string pool is part of the heap). GC works **only** here.
+- [ ] **Method Area**: class blueprints/metadata and method definitions; methods are **never stored inside objects** — objects hold only instance variables.
+- [ ] **Stack**: one **frame per method call** (LIFO): locals, parameters, reference variables, return address. Frames are auto-removed on return — no GC needed.
+- [ ] **Program Counter** tracks the currently executing instruction; the **return address** lets a caller resume at the right instruction.
+- [ ] Java is **pass-by-value** — parameters are copies; `a` in the caller and `x` in the callee are different variables.
+- [ ] Recursion without a base case ⇒ **`StackOverflowError`**; unbounded growth of reachable objects ⇒ **`OutOfMemoryError`** (heap). Both are `Error`s.
+- [ ] `new` creates an object; `s2 = s1` only copies the **reference**.
+- [ ] An object is **eligible for GC** when no reachable reference points to it (reference set to `null` or goes out of scope) — eligible ≠ immediately freed.
+- [ ] A Java **memory leak** = reachable-but-unneeded objects. Don't hold references longer than needed; don't let long-lived collections grow unbounded.
+- [ ] Control the heap with **`-Xms`** (initial) and **`-Xmx`** (max) JVM flags.
+- [ ] The heap is a **graph** of objects referencing objects; reachability from live roots determines what survives.
+
+---
+
+#### Practice Questions
+
+**Basic**
+
+1. List the four main JVM memory areas and say which are thread-shared.
+
+2. Where is each stored: a local `int`, an `Integer[]` array object, a `static` counter, the reference variable `list`, the `String` literal `"abc"`?
+
+3. Why are stack frames destroyed automatically but heap objects need a garbage collector?
+
+**Intermediate**
+
+4. Draw stack and heap after `int x = 5; Student s1 = new Student(); Student s2 = s1; s1 = null;`. Is the `Student` object eligible for GC?
+
+5. Explain why returning from `m1()` back to `main` needs a **return address** even though the stack already shows `main` is below `m1`.
+
+6. Write a small program that triggers `StackOverflowError` and one that triggers `OutOfMemoryError` (with `-Xmx`). What's different about *why* each happens?
+
+**Advanced / Interview-style**
+
+7. A service's heap usage climbs steadily until the pod is OOM-killed, though objects are "dereferenced" at the end of each request. Where would you look (hint: what's still holding references)?
+
+8. Why does a loop that creates millions of short-lived objects slow down your program even though you never leak memory?
+
+9. Why are two threads calling the same method on the same object more dangerous than two threads each calling a method with its own local variables? Answer using stack vs. heap.
+
+## 46. Heap Generations, GC Algorithms & Reference Types
+
+
+
+### 1. The Production Picture
+
+A Razorpay-style payments API shows latency spikes every few minutes. Heap graphs show a sawtooth: usage climbs, drops sharply (minor GC), and every now and then there's a long flat pause (major GC). Understanding generations tells you whether those pauses are healthy churn or a leak promoting junk into the old generation.
+
+---
+
+### 2. Heap Structure: Young & Old Generation
+
+```
+┌───────────────────────────────── HEAP ─────────────────────────────────┐
+│                                                                          │
+│   ┌──────────────── YOUNG GENERATION ────────────────┐   ┌─ OLD GEN ─┐   │
+│   │   EDEN          Survivor S0       Survivor S1     │   │ long-lived │   │
+│   │ (new objects)   (survivors)       (survivors)     │   │  objects   │   │
+│   └───────────────────────────────────────────────────┘   └───────────┘   │
+│   (+ String pool is also part of the heap)                                │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+**Why split it?** The JVM can't predict an object's lifetime when it's created. Empirically, **most objects die young** (temporary objects created for a small job). So:
+
+- **Young generation** → scanned **frequently** (cheap, most things die here).
+- **Old generation** → scanned **rarely** (expensive; objects here are probably long-lived).
+
+Since every GC run costs application time, splitting lets the JVM spend frequent-but-cheap effort where garbage is plentiful and rare-but-expensive effort where it isn't.
+
+---
+
+### 3. An Object's Journey
+
+```
+new Student()
+     │
+     ▼
+   EDEN ──(survives a GC)──► S0 ──(survives)──► S1 ──(survives)──► S0 ──► ... ──► OLD GEN
+                              ▲_____________ ping-pong ____________│        (after threshold)
+```
+
+1. **Every new object starts in Eden** (allocation here is very fast).
+2. **Minor GC** runs on the young generation. Dead objects are removed; **survivors move to a survivor space** (S0).
+3. Each survivor gets an **age counter**, incremented every time it survives a minor GC. Survivors **alternate between S0 and S1** each cycle.
+4. When the age reaches a **threshold** (commonly **15**), the object is **promoted to the Old Generation**.
+5. The old generation is collected by a **major GC** (less frequent, more expensive).
+
+#### Worked trace
+
+```
+Eden: [OB1] [OB2] [OB3] [OB4]
+  GC #1 → OB1, OB3 dead (unreferenced) → OB2, OB4 survive → move to S0, age = 1
+  GC #2 → both survive                 → move to S1, age = 2
+  GC #3 → both survive                 → move to S0, age = 3
+  ...
+  GC #~15 → only OB2 still alive       → age threshold hit → promoted to OLD GEN
+            (OB4 died somewhere along the way)
+```
+The **age counter only exists in survivor spaces** — once an object is in the old generation, age no longer matters.
+
+#### Why promote to Old Gen at all?
+
+An object that has survived 15 collections is probably long-lived (and often referenced from many places). Re-scanning it every young-gen GC wastes effort, so it's moved somewhere that's scanned less often.
+
+---
+
+### 4. When Objects Skip the Normal Journey
+
+The threshold of 15 isn't fixed — the JVM adapts it:
+
+| Situation | What the JVM does |
+|---|---|
+| **Survivor space overflow** — lots of survivors fill S0/S1 | Promotes some objects to Old Gen early, even with low age |
+| **Dynamic age determination** — a large group of objects reach the same age together | Lowers the threshold and promotes them (the JVM infers they were created deliberately and will persist) |
+| **Very large objects** — e.g., `new int[10_000_000]` | Allocated **directly in the Old Gen**; there's no point copying a huge object around the young gen |
+
+---
+
+### 5. Minor GC vs. Major GC
+
+| | **Minor GC** | **Major GC** |
+|---|---|---|
+| Where | Young generation | Old generation |
+| Frequency | High | Low |
+| Cost | Cheap — most objects are already dead | Expensive — deep scan of a large, interlinked object graph |
+| Typical algorithm | **Copying** | **Mark-Sweep / Mark-Compact** |
+
+Why is old-gen GC expensive? An old object is likely referenced from many places, and the heap is effectively a **graph** — the GC must trace references deeply to be sure something is truly unreachable.
+
+---
+
+### 6. GC Algorithms
+
+#### 6.1 Mark & Sweep
+
+Two phases:
+
+1. **Mark** — starting from live references (roots), mark every **reachable** object.
+2. **Sweep** — remove every **unmarked** (unreachable) object.
+
+```
+Before:  [A] [B] [C] [D] [E]        A, C, E reachable;  B, D not
+After :  [A] [ ] [C] [ ] [E]        B and D swept — but holes remain
+```
+**Downside: fragmentation.** The freed space is scattered in gaps; a large new object may not fit even though total free space is enough.
+
+#### 6.2 Mark & Compact
+
+Mark & Sweep plus a **compaction** step — survivors are slid together:
+
+```
+Before:  [A] [B] [C] [D] [E]
+After :  [A] [C] [E] [ free space ......]
+```
+**No fragmentation**, but **moving objects is expensive** (like left-shifting every element of an array). Used in the old generation alongside/instead of plain mark-sweep.
+
+#### 6.3 Copying
+
+Used in the **young generation**. Instead of marking-then-sweeping, copy the **live** objects to a fresh area and discard the old area wholesale:
+
+```
+Eden:  [A] [B] [C] [D]    live: B, D
+         │ copy live objects only
+         ▼
+S0:    [B] [D]            Eden cleared entirely (A, C simply left behind)
+```
+Why it fits young gen: most objects are dead, so there's little to copy; objects are freshly created and not deeply interlinked, so no costly deep scan is needed. Result: very fast, and no fragmentation.
+
+| Algorithm | Where | Pros | Cons |
+|---|---|---|---|
+| Mark & Sweep | Old gen | Simple | Fragmentation |
+| Mark & Compact | Old gen | No fragmentation | Moving objects is costly |
+| Copying | Young gen (minor GC) | Very fast, no fragmentation | Needs extra space to copy into |
+
+---
+
+### 7. Stop-The-World (STW)
+
+> **When the GC runs, the JVM pauses your application threads.**
+
+Why? The GC traces and moves objects through a graph; if your program kept creating objects or changing references mid-scan, the GC's picture of "what's reachable" would be wrong. So application threads are halted until the GC finishes that phase.
+
+Implications:
+- **More frequent / longer GC = slower app.** A leaking or allocation-heavy program triggers constant GC and constant pauses.
+- **Parallel GC** uses **multiple GC threads** so the pause is shorter. It does **not** mean "GC runs while your app keeps running" — pauses still occur, just shorter.
+- (Modern low-pause collectors — G1, ZGC, Shenandoah — do much more of their work *concurrently* with the app, shrinking pauses further; the lecture stays at the Parallel-GC level.)
+
+Best strategy: **write code that doesn't churn memory or leak**, so GC runs less.
+
+#### `System.gc()`
+
+```java
+System.gc();   // a REQUEST to the JVM to run GC — no guarantee it will
+```
+The JVM decides whether to honour it. Don't rely on it for correctness or performance.
+
+#### `OutOfMemoryError` and Heap Dumps
+
+If memory leaks and the heap fills, the GC can't free anything (everything is still referenced) → `OutOfMemoryError`. To investigate, take a **heap dump** — a snapshot of the entire heap showing which objects exist, how many, how big, and who references whom. Tools like **VisualVM** let you analyze it to find what's hogging memory.
+
+(Handy flag: `-XX:+HeapDumpOnOutOfMemoryError` makes the JVM write a dump automatically when OOM hits.)
+
+---
+
+### 8. Reference Types — Controlling How GC Treats Your Objects
+
+```
+Strong  >  Soft  >  Weak  >  Phantom        (strictest → weakest hold on the object)
+```
+
+#### Strong reference — the default (99% of your code)
+
+```java
+Student s1 = new Student();
+```
+As long as a strong reference exists, the GC **will not** collect the object.
+
+#### Soft reference — "keep it unless memory is tight"
+
+```java
+SoftReference<Student> s2 = new SoftReference<>(new Student());
+Student s = s2.get();          // the object, or null if GC reclaimed it
+```
+The GC may keep softly-reachable objects around, but will clear them **when it needs memory** (before throwing OOM). **Use case: caches** — if memory gets tight, drop cached entries; on a cache miss, reload from the database.
+
+#### Weak reference — "gone at the next GC"
+
+```java
+WeakReference<Student> s3 = new WeakReference<>(new Student());
+s3.get();                      // null after the next GC cycle (if nothing strong refers to it)
+```
+Survives only until the **next GC run**, regardless of memory pressure. **Use case:** `WeakHashMap`, where an entry should disappear once its key is no longer used elsewhere; caches that should clear on every GC.
+
+#### Phantom reference — "already gone"
+
+```java
+PhantomReference<Student> s4 = ...;
+s4.get();                      // ALWAYS null
+```
+You can never retrieve the object through it. It exists so the JVM/GC can be notified (via a reference queue) *after* an object is finalized — used internally for cleanup bookkeeping. You'll almost never use it directly.
+
+| Type | When GC may reclaim the object | Typical use |
+|---|---|---|
+| **Strong** | Never while the reference exists | Normal code |
+| **Soft** | When memory is needed | Memory-sensitive caches |
+| **Weak** | At the next GC cycle | `WeakHashMap`, auto-clearing caches |
+| **Phantom** | Already finalized; `get()` → `null` | GC-internal cleanup notifications |
+
+> **Interview-gold line:** *"Strong references keep objects alive no matter what; soft references yield under memory pressure; weak references yield at the next collection. Choosing between them is choosing how much you want the GC to be allowed to forget."*
+
+---
+
+### 9. Full Walkthrough — All Memory Areas Together
+
+```java
+class Student {
+    String name;
+    int age;
+    static String college = "IIT Guwahati";
+
+    Student(String name, int age) { this.name = name; this.age = age; }
+    void markAttendance() { System.out.println(this.name + " is present"); }
+    static void changeCollege(String newCollege) { college = newCollege; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Student s1 = new Student("Aditya", 28);
+        s1.markAttendance();
+        Student.changeCollege("IIT Bombay");
+    }
+}
+```
+
+1. `javac Main.java` → bytecode. `java Main` → **JVM starts**.
+2. **Class loading**: `Main`'s metadata → **Method Area** (class name, parent `Object`, `main` signature, bytecode, access modifiers). PC is still empty.
+3. JVM creates the **main thread** (stack + PC) and pushes a **`main` frame** with slots for `args` and `s1` — the JVM knows these from the class metadata, even before any line runs.
+4. `Student s1 = new Student("Aditya", 28)` is the first statement:
+   - `Student` hasn't been seen → **load `Student` into the Method Area**: fields (`name`, `age` signatures), the **static variable `college`**, method definitions, constructor.
+   - Static `college` is initialized: it holds a **reference into the string pool** ("IIT Guwahati" lives in the pool, not in the Method Area).
+   - `new` → a **`Student` object on the heap** with `name = null`, `age = 0`.
+   - **Constructor frame pushed** onto the stack: holds `this` (→ the heap object), plus parameters `name`, `age` (`"Aditya"` is a reference into the string pool; `28` is a primitive).
+   - `this.name = name; this.age = age;` → the heap object's `name` now **references** the pooled `"Aditya"`; `age = 28`.
+   - Constructor frame **popped** (its `this` and params vanish). `s1` in `main`'s frame now **points to the heap object**.
+5. `s1.markAttendance()` — an **instance method**: the bytecode is looked up in the **Method Area**; a **frame is pushed** containing `this` (→ the object) and a return address; it prints; frame **popped**.
+6. `Student.changeCollege("IIT Bombay")` — a **static method**: frame pushed with parameter `newCollege` (→ pooled `"IIT Bombay"`) and **no `this`** (it's not tied to an object). It sets static `college` to reference `"IIT Bombay"`. Frame popped.
+7. `main` ends → its frame is popped → `s1` is gone → the `Student` object has **no references** → **eligible for GC**.
+
+```
+ STACK                  HEAP                              METHOD AREA
+ ┌────────────┐        ┌───────────────────────────┐     ┌────────────────────────┐
+ │ main frame │        │ Student object            │     │ class Main  {main...}  │
+ │  s1 ───────┼───────►│   name ──► "Aditya" (pool)│     │ class Student {         │
+ └────────────┘        │   age  = 28                │     │   fields, methods,     │
+                       │ String pool:               │     │   static college ──┐   │
+                       │   "Aditya" "IIT Bombay" ◄──┼─────┼───────────────────┘   │
+                       │   "IIT Guwahati" (no refs) │     └────────────────────────┘
+                       └───────────────────────────┘
+```
+
+Notes from the trace:
+- **Stack never holds objects** — only primitives and **references**; the real objects are on the heap (including string-pool strings).
+- **Static data** belongs to the class (Method Area); **instance data** belongs to each object (heap).
+- Instance methods/constructors get **`this`**; static methods don't.
+- After `changeCollege`, nothing references `"IIT Guwahati"` any more, so it's *conceptually* garbage. (In practice, string literals are often kept alive by the class's constant pool while the class is loaded — treat this as illustrating "unreferenced ⇒ eligible.")
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** Why does the heap have a young and an old generation?
+
+*Answer:* Most objects die young, so the young generation can be collected frequently and cheaply. Long-lived objects get promoted to the old generation, which is collected rarely because scanning it is expensive. This minimizes total GC pause time.
+
+> **Q2.** Trace the lifecycle of an object that stays alive for a long time.
+
+*Answer:* Created in Eden → survives a minor GC → moves to a survivor space with age 1 → bounces between S0 and S1 as its age increments each minor GC → promoted to the old generation when age reaches the threshold (~15) → thereafter collected only by major GC.
+
+> **Q3.** Why is the copying algorithm good for the young generation but mark-compact used for the old generation?
+
+*Answer:* Young gen is mostly garbage with shallow references, so copying the few survivors is cheap and leaves no fragmentation. Old gen holds many live, interlinked objects, so a copy-everything approach is impractical; mark-compact marks live objects and compacts them to avoid fragmentation.
+
+> **Q4.** What does "stop-the-world" mean, and does Parallel GC eliminate it?
+
+*Answer:* Application threads pause while the GC runs so the object graph stays consistent. Parallel GC uses multiple GC threads to shorten the pause but doesn't remove it.
+
+> **Q5.** Strong vs. soft vs. weak references — which would you use for a memory-sensitive cache?
+
+*Answer:* A soft reference — entries stay while memory is plentiful and are dropped when the JVM needs space. (A weak reference would clear at every GC, giving many more cache misses.)
+
+> **Q6.** Does `System.gc()` guarantee a collection?
+
+*Answer:* No — it's only a request; the JVM decides whether to run GC.
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] Heap = **Young Generation** (Eden + S0 + S1) + **Old Generation** (+ string pool region).
+- [ ] **Every new object starts in Eden.** Survivors of a **minor GC** move to a survivor space and age with each survived GC; at the **threshold (~15)** they're promoted to the Old Gen.
+- [ ] Age counters live only in survivor spaces; the JVM can adapt the threshold (survivor overflow, many same-age objects) and puts **very large objects directly in the Old Gen**.
+- [ ] **Minor GC** (young): frequent, cheap, uses **copying**. **Major GC** (old): infrequent, expensive, uses **mark-sweep / mark-compact**.
+- [ ] **Mark & Sweep** → fragmentation; **Mark & Compact** → no fragmentation but costly object moves; **Copying** → fast & compact, ideal for young gen.
+- [ ] **Stop-the-world**: GC pauses application threads. Parallel GC shortens (not removes) pauses; modern collectors do more concurrently.
+- [ ] Reduce GC cost by avoiding leaks and needless object churn — you can't switch STW off.
+- [ ] `System.gc()` is only a **hint**.
+- [ ] **Heap dump** = snapshot of the heap for diagnosing leaks (VisualVM; `-XX:+HeapDumpOnOutOfMemoryError`).
+- [ ] References: **Strong** (never collected while referenced) > **Soft** (collected when memory is needed — caches) > **Weak** (collected at next GC — `WeakHashMap`) > **Phantom** (`get()` always `null`; GC-internal bookkeeping).
+- [ ] Stack holds **references and primitives only**; objects (incl. strings) live on the heap; **static** data is per-class, **instance** data per-object; static methods have no `this`.
+
+---
+
+#### Practice Questions
+
+**Basic**
+
+1. Name the parts of the young generation and what each is for.
+
+
+2. What happens to an object when it survives its first minor GC?
+
+3. What is "stop-the-world"?
+
+**Intermediate**
+
+4. Why does Mark & Sweep fragment memory, and how does Mark & Compact fix it? What's the cost of the fix?
+
+5. Describe two situations where the JVM promotes an object to the old generation *before* its age reaches the threshold.
+
+6. Write a short example using `WeakReference` and explain when `get()` returns `null`.
+
+**Advanced / Interview-style**
+
+7. Latency graphs show regular short pauses plus occasional long ones. Map each to minor vs. major GC and say what would make the long ones more frequent.
+
+8. A service gradually promotes huge numbers of objects to the old generation and eventually hits `OutOfMemoryError`. Describe how you'd diagnose it (heap dump, what to look for).
+
+9. Compare using `SoftReference` vs. `WeakReference` for an in-memory cache of database rows. Which gives better hit rates, and why?
+
+## 47. Multithreading — Introduction (Program, Process, Thread, Concurrency vs Parallelism)
+
+
+
+### 1. Why Multithreading? (and why "faster" is the weakest answer)
+
+A Swiggy/Razorpay-style checkout screen: while the app calls the payment API, the UI must keep animating, accept taps on "Cancel", and keep a session-timeout timer running. If everything ran on one thread, the screen would freeze during the API call.
+
+A single-threaded program is executed by the **main thread**, instruction by instruction, top to bottom. **Multithreading** means a program can have **additional threads** that run alongside it.
+
+The intuitive answer — "it makes my program faster" — is true only in some cases (genuine parallelism on multiple cores). The bigger reasons:
+
+- **Doing independent things at the same time** — in an IDE, autocomplete and error-underlining run side by side while you type.
+- **Responsiveness** — keep the UI alive while long work (network, disk, DB) is in progress.
+- **Using multiple CPU cores** when you have them.
+
+---
+
+### 2. Program
+
+> A **program** is a set of instructions — code you've written.
+
+`Demo.java` is a program. Compile it (`javac Demo.java`) and `Demo.class` (bytecode) is also just a program. Both are **files sitting on disk**. Nothing is "running" yet.
+
+---
+
+### 3. Process
+
+> A **process** is a program that is **currently being executed**.
+
+```
+ DISK                          RAM
+┌────────────────┐   OS loads  ┌─────────────────────┐
+│ Demo.java      │ ──────────► │  Process P1          │  ← running instance
+│ Demo.class     │             │  (has its own memory)│
+└────────────────┘             └─────────────────────┘
+```
+
+- Running `java Demo` makes the **OS** load the program from disk into **RAM** and create a **process**.
+- Chrome, VS Code, Spotify are *programs* while installed, and *processes* while open.
+- The **CPU executes instructions that live in RAM**; the OS is what brings the program there.
+
+#### What a process needs to run
+
+| Need | Meaning |
+|---|---|
+| **RAM** | A chunk of memory for its code, variables, objects |
+| **CPU time** | The CPU must execute its instructions |
+| **Resources** | Files, network, devices — handed out by the OS |
+
+#### Processes are isolated
+
+With 8 GB RAM, Chrome might hold 2 GB, VS Code 2 GB, your Java program 2 GB. Each process uses **only its own memory** — one process can **never read or modify another process's memory**. (That isolation is the OS's job.)
+
+---
+
+### 4. Thread
+
+> A **thread** is the **smallest sequence of instructions the CPU can execute independently** — a "lightweight process."
+
+- Every process has **at least one thread**. In Java it's the **main thread**, created automatically.
+- You can create more (`T1`, `T2`, …); all belong to the **same process**.
+- **The CPU doesn't run "processes" — it runs threads.** To the CPU, processes don't really exist; it picks a thread and executes its instructions.
+
+```
+Process P1
+ ├── main thread
+ ├── T1
+ └── T2
+```
+
+Think of your program as a big body of instructions; threads are independent "lanes" through it that the CPU can schedule separately.
+
+---
+
+### 5. JVM Inside a Process
+
+For a Java program, when the OS creates the process, the **JVM starts inside it**. From then on:
+
+- the **OS** only created the process;
+- the **JVM** manages everything inside: loading classes (class loader), running bytecode, memory, threads, garbage collection.
+
+```
+┌──────────────────────── Process (created by OS, lives in RAM) ───────────────────────┐
+│  ┌────────────────────────────── JVM ──────────────────────────────────────────┐    │
+│  │   Class loader · bytecode execution · GC · memory management                 │    │
+│  │                                                                               │    │
+│  │   HEAP (shared)             METHOD AREA (shared)                              │    │
+│  │                                                                               │    │
+│  │   main thread: [Stack][PC]      T1: [Stack][PC]                               │    │
+│  └───────────────────────────────────────────────────────────────────────────────┘    │
+└───────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Startup flow (`java Demo`)
+
+1. **JVM loads** into the process.
+2. **Class loader** finds the main class (the one with `main`).
+3. JVM **creates the main thread**.
+4. JVM creates a **separate stack and program counter for the main thread**.
+5. Execution begins at `main`: a stack frame is pushed, and the program runs instruction by instruction.
+
+#### JVM memory vs. the OS-textbook layout
+
+| OS / general-threading textbooks | Java (JVM) |
+|---|---|
+| Code segment + Data segment | **Method Area** |
+| Heap | **Heap** |
+| Stack | **Stack** |
+| Registers | **Program Counter** |
+
+Why the JVM defines its own? Java is **platform independent** — it doesn't want its memory model to depend on any particular OS, so the JVM carves its own structure out of whatever RAM the OS gave the process.
+
+---
+
+### 6. What Threads Share and What They Own
+
+```
+Within ONE process (inside the JVM):
+
+   ┌──────── SHARED by all threads ────────┐
+   │   HEAP (objects)   METHOD AREA        │
+   └───────────────────────────────────────┘
+
+   main thread          T1                T2
+  ┌──────────┐       ┌──────────┐      ┌──────────┐
+  │  Stack   │       │  Stack   │      │  Stack   │     ← PRIVATE per thread
+  │  PC      │       │  PC      │      │  PC      │
+  └──────────┘       └──────────┘      └──────────┘
+```
+
+- **Private to each thread:** its **stack** (method frames, local variables, intermediate results) and its **program counter** (the instruction it's on). Locals are therefore naturally thread-safe.
+- **Shared by all threads of the process:** **heap** and **method area**. Any thread can read/modify the same object — which is exactly why synchronization and race conditions exist (coming up in later lectures).
+
+---
+
+### 7. How the CPU Executes Threads — Context Switching
+
+Assume a **single-core** CPU and a process with `main` and `T1`.
+
+A core can execute **one thread at a time**. To make progress on both, the OS does **context switching**:
+
+```
+time →
+core:  [ main ]──switch──[ T1 ]──switch──[ main ]──switch──[ T1 ] ...
+        0.5s              0.5s            0.5s              0.5s    (illustrative slice)
+```
+
+How does a thread resume later *exactly where it left off*?
+
+- **Program counter** → remembers the last instruction executed, so execution restarts at the next one.
+- **Stack** → remembers which method it was in, local variables, and intermediate results.
+- The CPU's **registers** hold temporary values (e.g., the result of `c * d` in `a = b + c * d`) while an instruction runs; when the thread is switched out, that state must be saved so it can be restored.
+
+> **Precision note:** conceptually "the thread's state is saved and restored." Strictly, the **OS saves the CPU register state** in a per-thread context record, while the JVM keeps each thread's **stack and PC** separate. The result is the same: when a thread gets the CPU back, it continues exactly where it stopped — e.g., resuming a loop at iteration 51, not iteration 0.
+
+The time slice (0.5 s above) is just an illustration — the OS scheduler decides, and **you don't control which thread runs when or on which core.**
+
+---
+
+### 8. Concurrency vs. Parallelism
+
+#### Concurrent execution — one core, interleaved
+
+```
+Core 1:  main ▓▓ T1 ▓▓ main ▓▓ T1 ▓▓ main ▓▓ T1 ▓▓
+```
+- Multiple threads are **in progress**, but at any instant **only one is actually running**.
+- Rapid switching makes it **look** simultaneous (IDE: autocomplete + error checking both seem live).
+- If `main` and `T1` each need 3 s of CPU, total ≈ **6 s**.
+
+#### Parallel execution — multiple cores
+
+```
+Core 1:  main ▓▓▓▓▓▓▓▓▓▓▓▓
+Core 2:  T1   ▓▓▓▓▓▓▓▓▓▓▓▓
+```
+- Threads run **at the same instant** on different cores. **True parallelism.**
+- Same two 3-second jobs finish in ≈ **3 s**, with no context switching needed.
+
+| | Concurrency | Parallelism |
+|---|---|---|
+| Running at the same instant? | **No** — interleaved | **Yes** |
+| Needs multiple cores? | No | Yes |
+| Illusion/real | Looks simultaneous | Truly simultaneous |
+| Speedup for CPU-bound work | None (adds switching overhead) | Up to ~N× on N cores |
+
+> **Interview-gold line:** *"Concurrency is about **dealing with** many things at once (structure); parallelism is about **doing** many things at once (execution). Multithreading gives you concurrency always, parallelism only when there are enough cores."*
+
+#### Real systems: both at once
+
+Many threads, few cores. With 5 threads and 2 cores, the OS runs 2 threads truly in parallel (one per core) while **context-switching** the others in and out. So you get parallelism *and* concurrency. The OS picks which thread goes where — and threads from *different* processes can run on neighboring cores, because the CPU sees threads, not processes.
+
+Threads that are ready and waiting for CPU time are in the **runnable** state (full thread lifecycle comes next lecture).
+
+---
+
+### 9. Multitasking vs. Multithreading
+
+| | **Multitasking** | **Multithreading** |
+|---|---|---|
+| Level | **Operating system** concept | **Program / process** concept |
+| Unit | **Processes** | **Threads inside one process** |
+| Meaning | Several programs run "at once" (Chrome + VS Code + Spotify) | One program does several things "at once" |
+| Memory | Each process has its own isolated memory | Threads share heap/method area, own stack/PC |
+
+Underneath, both are the same machinery: the OS scheduler running **threads** on CPU cores with context switching. Multitasking just means those threads belong to different processes.
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** Difference between a program and a process?
+
+*Answer:* A program is a set of instructions stored on disk (e.g., `Demo.java`/`Demo.class`). A process is that program loaded into RAM and currently being executed, with its own memory.
+
+> **Q2.** What does the OS do vs. what does the JVM do when you run `java Demo`?
+
+*Answer:* The OS creates the process and gives it RAM/CPU time/resources. The JVM starts inside it and manages classes, memory areas, threads and garbage collection.
+
+> **Q3.** Which JVM memory is shared between threads and which is private?
+
+*Answer:* Heap and Method Area are shared. Each thread has its own Stack and Program Counter.
+
+> **Q4.** Why can a thread resume exactly where it left off after a context switch?
+
+*Answer:* Its program counter records the next instruction and its stack preserves the method frames, local variables and intermediate values; the saved CPU state is restored when it's scheduled again.
+
+> **Q5.** Two 3-second tasks on 1 core vs. 2 cores?
+
+*Answer:* One core → concurrent, interleaved, ≈ 6 s total. Two cores → parallel, ≈ 3 s total.
+
+> **Q6.** Multitasking vs. multithreading?
+
+*Answer:* Multitasking is the OS running multiple processes; multithreading is multiple threads within one process. Both rely on the OS scheduling threads on CPU cores.
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] **Program** = code on disk. **Process** = a program running (loaded into RAM, with its own isolated memory).
+- [ ] A process needs **RAM, CPU time, and resources**; processes can't access each other's memory.
+- [ ] **Thread** = smallest independently schedulable sequence of instructions; the **CPU runs threads, not processes**.
+- [ ] Every Java process has at least the **main thread**; more threads belong to the same process.
+- [ ] The OS creates the process; the **JVM runs inside it** and manages classes, memory, threads and GC.
+- [ ] The JVM defines its own memory layout (Method Area, Heap, Stack, PC) because Java is **platform independent**.
+- [ ] **Shared** across a process's threads: **Heap + Method Area**. **Private** per thread: **Stack + Program Counter**.
+- [ ] **Context switching** lets one core interleave threads; stack + PC (plus saved CPU state) let a thread resume where it stopped.
+- [ ] **Concurrency** = interleaved progress (may be one core). **Parallelism** = truly simultaneous (needs multiple cores).
+- [ ] Real systems use **both**: threads run in parallel across cores and are context-switched within each core.
+- [ ] **Multitasking** (OS, processes) ≠ **multithreading** (threads in one process).
+- [ ] You don't control **which thread runs when or on which core** — the OS scheduler does.
+
+---
+
+#### Practice Questions
+
+**Basic**
+1. Define program, process and thread in one line each.
+
+2. What's the role of the OS vs. the JVM when a Java program starts?
+
+3. Name what each thread owns privately and what it shares.
+
+**Intermediate**
+
+4. Draw the memory layout of a process with the main thread and one extra thread `T1` inside the JVM.
+
+5. A loop is at iteration 50 when the OS switches threads. How does the thread later continue at iteration 51? What stores what?
+
+6. Explain, with a timeline, why two 3-second CPU-bound tasks take ≈6 s on one core but ≈3 s on two cores.
+
+**Advanced / Interview-style**
+
+7. Your colleague says "multithreading always makes programs faster." Give two scenarios where it helps and one where it won't (or hurts).
+
+8. Five threads from three different processes run on a two-core machine. Describe how both parallelism and concurrency occur, and who decides the placement.
+
+9. Why does sharing the **heap** between threads create risk that sharing nothing (separate processes) doesn't? Link this to why later lectures need synchronization.
+
+##  48. Creating Threads, `start()` vs `run()`, Non-Determinism & Thread Lifecycle
+
+### 1. Two Ways to Define a Thread's Work
+
+Both ways put the work inside a **`run()`** method.
+
+#### Way 1 — extend `Thread`
+
+```java
+class MyThread extends Thread {
+    @Override
+    public void run() {
+        System.out.println("Thread is running");
+    }
+}
+
+public static void main(String[] args) {
+    MyThread t1 = new MyThread();
+    t1.start();                       // NOT t1.run()
+}
+```
+
+#### Way 2 — implement `Runnable`
+
+```java
+class MyRunnable implements Runnable {
+    @Override
+    public void run() {
+        System.out.println("Thread is running");
+    }
+}
+
+public static void main(String[] args) {
+    MyRunnable r1 = new MyRunnable();       // the TASK
+    Thread t1 = new Thread(r1);              // the THREAD that will run the task
+    t1.start();
+}
+```
+`Thread` has a constructor taking a `Runnable` (the "task"). `Thread` itself `implements Runnable`.
+
+#### Way 2b — `Runnable` as a lambda (preferred in modern code)
+
+`Runnable` is a **functional interface** (one abstract method: `void run()`), so:
+
+```java
+Thread t1 = new Thread(() -> System.out.println("Thread is running"));
+t1.start();
+```
+No extra class needed.
+
+#### Hierarchy
+
+```
+        Runnable  (interface: void run())
+           ▲
+           │ implements
+         Thread  (class)
+           ▲
+           │ extends
+        MyThread
+```
+
+---
+
+### 2. Thread vs. Runnable — Which to Use?
+
+| | `extends Thread` | `implements Runnable` |
+|---|---|---|
+| What you're defining | **A thread** ("is-a Thread") | **A task** — *what* to run |
+| Another superclass? | ❌ Java allows only one `extends` | ✅ can still extend another class and implement more interfaces |
+| Reuse | Logic tied to a thread | Same task can be given to **many** threads |
+| Lambda-friendly | No | ✅ functional interface |
+
+**Prefer `Runnable`** (or a lambda) because of:
+1. **Separation of concerns** — the task (*what* to do) is separate from the thread machinery (*how* it runs).
+2. **Reusability** — one `Runnable` instance can be passed to `T1`, `T2`, `T3`.
+3. **No inheritance lock-in** — Java has no multiple class inheritance; extending `Thread` uses up your single `extends`.
+4. **Lambdas** — concise code.
+
+```java
+Runnable task = () -> System.out.println("work");
+new Thread(task).start();
+new Thread(task).start();       // same task, two threads
+```
+
+---
+
+### 3. What `start()` Actually Does
+
+```
+t1.start()
+   │
+   ├─ JVM asks the OS to create a new thread
+   ├─ the new thread gets its own STACK and PROGRAM COUNTER
+   ├─ the thread becomes RUNNABLE (ready to be scheduled on a CPU)
+   └─ when the scheduler gives it CPU time, it executes run()
+```
+
+Only `start()` triggers thread creation. **You never call `run()` yourself to get concurrency.**
+
+---
+
+### 4. `start()` vs. `run()` — A Classic Interview Question
+
+```java
+Thread t1 = new Thread(() ->
+    System.out.println("Current thread: " + Thread.currentThread().getName()));
+
+t1.start();   // prints: Current thread: Thread-0   (a NEW thread)
+t1.run();     // prints: Current thread: main        (ordinary method call!)
+```
+
+| | `start()` | `run()` |
+|---|---|---|
+| Creates a new thread? | **Yes** | **No** |
+| Runs on | The new thread | The **calling** thread (`main`) |
+| Concurrency | Yes | None — just a normal method call |
+
+Calling `run()` directly never asks the OS for a thread; it just executes the lambda body on whichever thread called it.
+
+#### Can you `start()` a thread twice?
+
+```java
+t1.start();
+t1.start();     // IllegalThreadStateException
+```
+**No.** A thread's lifecycle is one-way; once started (and especially once terminated) it can't be started again. Create a new `Thread` object instead.
+
+---
+
+### 5. Finding the Current Thread: Name and ID
+
+```java
+Thread.currentThread()               // static: the Thread object for the code that's running
+Thread.currentThread().getName()     // "main" for the main thread
+```
+
+- `Thread.currentThread()` is **static** and returns a reference to the thread executing that line; `getName()` is an **instance** method (you can't call it as `Thread.getName()`).
+- Auto-generated names: **`Thread-0`, `Thread-1`, …** (you can set your own via `setName(...)` — covered with the other methods next lecture).
+- The `main` thread has ID **1** by default; other threads get arbitrary-looking IDs (20, 21, …).
+- **`getId()` is deprecated** (since Java 19; use `threadId()`): IDs don't mean anything about order, and nobody should rely on them. **Names are what's useful — mainly for logging** (which thread produced this log line?).
+
+A thread you create but never `start()` never runs:
+
+```java
+Thread t1 = new Thread(() -> System.out.println("hi"));
+// no t1.start() → nothing prints; the OS never created a thread
+```
+
+---
+
+### 6. Non-Determinism
+
+```java
+Thread t1 = new Thread(() -> {
+    for (int i = 1; i <= 100; i++) if (i % 2 == 0) System.out.println("T1 " + i);
+});
+Thread t2 = new Thread(() -> {
+    for (int i = 1; i <= 100; i++) if (i % 2 != 0) System.out.println("T2 " + i);
+});
+t1.start();
+t2.start();
+```
+
+Beginners expect all of `T1`'s evens, then all of `T2`'s odds. What actually happens: output is **interleaved**, and **different on every run**:
+
+```
+T1 2
+T1 4
+T1 6
+T2 1
+T2 3
+T1 8
+T2 5 ...
+```
+
+#### Why?
+
+The **OS scheduler** decides which thread runs, on which core, for how long. It depends on:
+- **scheduling algorithm** (round robin, time slicing, priority-based, …),
+- **system load** (browser, IDE, etc. also need CPU),
+- **hardware** — number of cores (more cores → more true parallelism),
+- **thread creation timing** — when the OS actually created and queued each thread.
+
+As a Java developer you **can't control** these. So:
+
+> **Multithreaded output order is non-deterministic.** Never write code that *assumes* thread X runs before thread Y unless you explicitly coordinate them (later: `join`, locks, `wait/notify`).
+
+Non-determinism makes bugs **intermittent** — "worked 10 times, failed once" — which is why multithreaded code is hard to debug. Good threading practice (coming in this series) is largely about taming this.
+
+#### A preview of why that matters: shared state
+
+All threads of a process **share the heap**. Suppose two threads run:
+
+```java
+// T1.run():  s1.name = "Aditya";
+// T2.run():  s1.name = "Rohit";
+```
+Both write the same shared object. Depending on scheduling, the final value could be either — and with more complex updates, the object can end up in an inconsistent state. A block of code touching shared state like this is a **critical section**. The fix is to let only **one thread at a time** execute it — by acquiring a **lock** — so other threads must **wait**. That's what leads to the BLOCKED state below (details in the locking lectures).
+
+---
+
+### 7. Thread Lifecycle
+
+A thread's state is available via `thread.getState()`, which returns the `Thread.State` enum:
+
+`NEW`, `RUNNABLE`, `BLOCKED`, `WAITING`, `TIMED_WAITING`, `TERMINATED`.
+
+```
+                     start()
+        ┌─────┐   ───────────►   ┌──────────┐   run() finishes   ┌────────────┐
+        │ NEW │                  │ RUNNABLE │ ─────────────────► │ TERMINATED │
+        └─────┘                  └────┬─────┘                    └────────────┘
+                                      │  ▲
+          waiting for a monitor lock  │  │  lock acquired
+                                      ▼  │
+                                 ┌─────────┐
+                                 │ BLOCKED │
+                                 └─────────┘
+
+                  wait() / join()      │  ▲   notify()/notifyAll() /
+                                       ▼  │   joined thread finishes
+                                 ┌─────────┐
+                                 │ WAITING │
+                                 └─────────┘
+
+          sleep(ms) / wait(ms) / join(ms) │  ▲  time elapses / notified
+                                          ▼  │
+                                 ┌───────────────┐
+                                 │ TIMED_WAITING │
+                                 └───────────────┘
+```
+
+### The states
+
+| State | Meaning | How you get there |
+|---|---|---|
+| **NEW** | Thread object created in your code; the OS hasn't created a thread yet | `new Thread(...)` |
+| **RUNNABLE** | Ready to run **or** currently running on a CPU | `start()` |
+| **BLOCKED** | Wants to enter a `synchronized` region (monitor lock) held by another thread | Lock contention |
+| **WAITING** | Waiting **indefinitely** for another thread's action | `wait()`, `join()` — leave via `notify()` / target finishing |
+| **TIMED_WAITING** | Waiting for a **bounded time** | `sleep(ms)`, `wait(ms)`, `join(ms)` |
+| **TERMINATED** | `run()` finished (or died with an exception) | Automatic — no method call needed |
+
+### RUNNABLE includes "running"
+
+Conceptually there's a "running" state, but Java doesn't expose one: from **your** point of view, "ready and queued" and "actually executing on a core" are the same — you can't `run` a thread yourself (only `start()` it), and the scheduler decides who gets CPU. Java calls both **RUNNABLE**.
+
+### Terminal and irreversible
+
+`TERMINATED` is final — a terminated thread can't be restarted (the reason `start()` twice throws).
+
+#### Important corrections / precision notes
+
+- **BLOCKED is specifically about *monitor locks*** (`synchronized`). A thread blocked on slow **I/O** (e.g., reading user input) is typically reported as **RUNNABLE** by `getState()`, not `BLOCKED`.
+- **Locks and waiting:** `Object.wait()` (and `wait(timeout)`) **releases** the monitor lock while waiting. `Thread.sleep()` does **not** release any locks you're holding. (The lecture generalizes "timed waiting keeps locks"; precisely it's `sleep()` that keeps them, while `wait(timeout)` releases them.) This difference will matter in the synchronization lectures.
+- **`stop()`** (can force a thread to `TERMINATED` from any state) is **deprecated and unsafe** — it kills a thread mid-operation, possibly leaving shared data half-updated. Never use it; cooperative cancellation (interrupts/flags) is the modern approach.
+
+---
+
+### 8. Watching the States in Code
+
+```java
+Thread t1 = new Thread(() ->
+    System.out.println("Current: " + Thread.currentThread().getName()
+        + " | main state: " + mainThread.getState()));   // mainThread captured earlier
+
+Thread mainThread = Thread.currentThread();
+
+System.out.println(t1.getState());   // NEW
+
+t1.start();
+System.out.println(t1.getState());   // RUNNABLE   (usually — see below)
+
+try { Thread.sleep(2000); } catch (InterruptedException e) { }   // main sleeps 2s
+
+System.out.println(t1.getState());   // TERMINATED (t1 finished during main's sleep)
+```
+
+Typical output:
+```
+NEW
+RUNNABLE
+Current: Thread-0 | main state: TIMED_WAITING
+TERMINATED
+```
+
+Takeaways:
+- `NEW` before `start()`; `RUNNABLE` right after (the OS takes a moment to actually schedule the thread, so your next line usually runs first).
+- **Don't rely on timing**: a `getState()` call immediately after `start()` *could* in principle observe `TERMINATED` — extremely unlikely, but threading is non-deterministic.
+- `Thread.sleep(ms)` is **static**: it puts the **calling** thread (here `main`) to sleep → **TIMED_WAITING**. It throws the checked `InterruptedException`, so you must `try/catch` or declare `throws`.
+- While `main` slept, `t1` ran and finished; waking up, `main` saw `TERMINATED`.
+- You can't print `main`'s *own* TIMED_WAITING state from `main` (it's asleep) — but another thread can observe it, as `t1` does above.
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** Difference between `start()` and `run()`?
+
+*Answer:* `start()` asks the JVM/OS to create a new thread, which then calls `run()`. Calling `run()` directly is an ordinary method call on the current thread — no new thread, no concurrency.
+
+> **Q2.** Why prefer `Runnable` over `extends Thread`?
+
+*Answer:* Runnable separates the task from the thread, lets one task be reused by many threads, doesn't consume your single `extends`, and works with lambdas.
+
+> **Q3.** What happens if you call `start()` twice on the same thread?
+
+*Answer:* `IllegalThreadStateException` — a thread's lifecycle can't be restarted; create a new `Thread`.
+
+> **Q4.** Why is the output of two threads printing numbers different on each run?
+
+*Answer:* Thread scheduling is up to the OS (algorithm, system load, core count, creation timing) and isn't controllable by the Java program — execution is non-deterministic.
+
+> **Q5.** Which method moves a thread from `NEW` to `RUNNABLE`? And how does it reach `TERMINATED`?
+
+*Answer:* `start()`. It reaches `TERMINATED` automatically when `run()` completes (no method call).
+
+> **Q6.** `Thread.sleep(2000)` called from `main` — which thread sleeps, and what state is it in?
+
+*Answer:* The calling thread (`main`); its state is `TIMED_WAITING`.
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] Put a thread's work in `run()`; create threads via `extends Thread` or (preferably) `Runnable` / lambda passed to `new Thread(...)`.
+- [ ] **Only `start()` creates a new thread.** Calling `run()` directly just runs on the current thread.
+- [ ] A thread can be started **only once**; second `start()` → `IllegalThreadStateException`.
+- [ ] Prefer **`Runnable`**: separation of concerns, reusability, no single-inheritance limit, lambda-friendly.
+- [ ] `Thread.currentThread()` (static) returns the running thread; `getName()` is an instance method; default names are `Thread-0`, `Thread-1`…; use names for **logging**. `getId()` is deprecated (use `threadId()`); IDs imply no order.
+- [ ] Thread output ordering is **non-deterministic** — never assume it; coordinate explicitly when order matters.
+- [ ] Shared heap objects touched by several threads form a **critical section** → must be protected (locks) — covered in later lectures.
+- [ ] States (`Thread.State`): **NEW → RUNNABLE → (BLOCKED / WAITING / TIMED_WAITING) → TERMINATED**; there's no separate RUNNING state — RUNNABLE covers both ready and running.
+- [ ] **BLOCKED** = waiting for a monitor lock; **WAITING** = indefinite wait (`wait`, `join`); **TIMED_WAITING** = bounded wait (`sleep`, `wait(ms)`, `join(ms)`).
+- [ ] `sleep()` keeps held locks; `wait()` releases the monitor. Blocking **I/O** shows as RUNNABLE, not BLOCKED.
+- [ ] **Never use `Thread.stop()`** — deprecated and unsafe.
+
+---
+
+#### Practice Questions
+
+**Basic**
+
+1. Write the three ways to create and start a thread that prints its own name.
+
+2. What does `Thread.currentThread().getName()` return when called from `main`? From a thread you created with no name set?
+
+3. What exception do you get from `t.start(); t.start();`?
+
+**Intermediate**
+
+4. Predict the output of `t1.start(); t1.run();` for a lambda that prints `Thread.currentThread().getName()`.
+
+5. Why does `getState()` right after `start()` usually print `RUNNABLE`, and why could it, in principle, print `TERMINATED`?
+
+6. Explain why two threads printing even/odd numbers produce a different interleaving each run, and name three factors that influence it.
+
+**Advanced / Interview-style**
+7. Map each of these calls to the state the *calling* thread enters: `Thread.sleep(500)`, `obj.wait()`, `other.join()`, entering a `synchronized` block whose lock is held by someone else.
+8. A teammate says "BLOCKED means waiting for I/O." Correct this, and say what state a thread blocked on a socket read typically reports.
+9. Why does having two threads write the same object's field create a problem that two *processes* writing their own memory don't? Tie it to heap vs. stack and to the idea of a critical section.
+
+## 49. Important Thread Methods — `sleep`, `join`, `yield`, `interrupt`, Priority & Daemon Threads
+
+
+### 1. `Thread.sleep(ms)`
+
+```java
+public static void main(String[] args) {
+    System.out.println("main starts");
+    try {
+        Thread.sleep(2000);              // main sleeps for 2 seconds
+    } catch (InterruptedException e) { }
+    System.out.println("main ends");
+}
+```
+
+- **Static** — it puts the **currently executing thread** to sleep (whichever thread runs that line).
+- State while sleeping: **`TIMED_WAITING`**; afterwards → **`RUNNABLE`** (and runs again whenever the scheduler gives it a CPU).
+- Throws the **checked** `InterruptedException` (another thread may interrupt a sleeper) — you must `try/catch` or declare `throws`.
+- **A sleeping thread does *not* release locks it holds.** If it sleeps inside a locked (`synchronized`) region, other threads wanting that lock stay blocked for the whole sleep.
+
+---
+
+### 2. `join()` — Wait for Another Thread to Finish
+
+```java
+public static void main(String[] args) throws InterruptedException {
+    System.out.println("main starts");
+
+    Thread t1 = new Thread(() -> {
+        try { Thread.sleep(2000); } catch (InterruptedException e) { }
+        System.out.println("Thread-0 runs");
+    });
+    t1.start();
+
+    t1.join();                           // main waits here until t1 terminates
+
+    System.out.println("main ends");
+}
+```
+
+Without `join()`: `main starts`, `main ends`, (2 s) `Thread-0 runs` — `main` doesn't wait.
+With `join()`:
+```
+main starts
+(2 seconds)
+Thread-0 runs
+main ends
+```
+
+How to read `t1.join()`: it's called **on** `t1` but **by** the current thread (`main`). **`main` waits until `t1` terminates.**
+
+State of the waiting thread: `main` goes to **`WAITING`**; when `t1` terminates, `main` returns to **`RUNNABLE`**.
+
+#### `join(ms)` — bounded wait
+
+```java
+t1.join(1000);       // wait at most 1 second
+```
+Wait up to 1 s; if `t1` isn't done by then, `main` carries on anyway. While waiting, the thread is in **`TIMED_WAITING`** (same as `sleep`).
+
+> **Takeaway:** `join` is the simplest way to impose *ordering* on otherwise non-deterministic threads — "don't proceed until that thread is finished."
+
+---
+
+### 3. `Thread.yield()` — A Polite Hint (Rarely Used)
+
+```java
+Thread t1 = new Thread(() -> {
+    for (int i = 1; i <= 10; i++) {
+        System.out.println("T1: " + i);
+        Thread.yield();                  // "I'm willing to let another thread run"
+    }
+});
+Thread t2 = new Thread(() -> {
+    for (int i = 1; i <= 10; i++) System.out.println("T2: " + i);
+});
+t1.start(); t2.start();
+```
+
+- `yield()` (static) tells the scheduler: *"I'm willing to give up my CPU time to another **runnable** thread of equal priority."*
+- The thread **stays `RUNNABLE`** — it doesn't enter WAITING/TIMED_WAITING/BLOCKED; it just offers its time slice.
+- It's **only a hint**: the OS may honor it or ignore it entirely. Output may or may not show T2 getting more turns.
+- **Not used in production code** — behavior is unpredictable and platform-dependent. It exists mainly for experimenting with scheduling.
+
+---
+
+### 4. `interrupt()` — Cooperative Cancellation
+
+> `t1.interrupt()` **doesn't stop `t1`**. It sets `t1`'s **interrupt flag** to `true` — a *signal* meaning "please stop what you're doing." The thread decides how to respond.
+
+Every thread has a boolean **interrupt flag**, `false` by default.
+
+#### The pattern: check the flag in your loop
+
+```java
+Thread t1 = new Thread(() -> {
+    while (!Thread.currentThread().isInterrupted()) {
+        System.out.println("running");
+    }
+    System.out.println("interrupted — cleaning up and exiting");
+});
+t1.start();
+
+Thread.sleep(2000);       // let it run for 2 seconds
+t1.interrupt();           // set its interrupt flag → loop condition becomes false → thread ends gracefully
+```
+
+Without the flag check (e.g., a plain `while (true)`), `interrupt()` would do nothing visible — the thread would run forever.
+
+Use cases: **cancelling long-running background tasks** and **shutting down thread pools** (executors use interrupts under the hood).
+
+#### The three related methods
+
+| Method | Static? | Returns | Clears the flag? |
+|---|---|---|---|
+| `t.interrupt()` | No | `void` | **Sets** flag to `true` |
+| `t.isInterrupted()` | No | current flag value | **No** — just reads it |
+| `Thread.interrupted()` | **Yes** (current thread) | current flag value | **Yes** — resets it to `false` |
+
+#### Interrupting a thread that's `sleep`ing / `wait`ing / `join`ing
+
+If the target is blocked in `sleep`, `wait` or `join` and gets interrupted, **that blocking call throws `InterruptedException` inside the interrupted thread** (and the flag is cleared). This is exactly why those methods declare a checked `InterruptedException`.
+
+```java
+Thread worker = new Thread(() -> {
+    try {
+        Thread.sleep(10_000);                 // blocked here
+    } catch (InterruptedException e) {
+        System.out.println("woken up early!");
+        Thread.currentThread().interrupt();   // good practice: restore the flag
+    }
+});
+worker.start();
+worker.interrupt();                           // makes the sleep() throw
+```
+
+> **Best practice:** if you catch `InterruptedException` and can't fully handle it, **restore the flag** with `Thread.currentThread().interrupt()` so code further up can still see the interruption. Don't silently swallow it.
+
+---
+
+### 5. `isAlive()`
+
+```java
+Thread t1 = new Thread(() -> {
+    try { Thread.sleep(2000); } catch (InterruptedException e) { }
+});
+
+System.out.println(t1.isAlive());   // false  — not started yet
+t1.start();
+System.out.println(t1.isAlive());   // true   — started, running/sleeping
+Thread.sleep(3000);
+System.out.println(t1.isAlive());   // false  — terminated
+```
+
+**Alive = from `start()` until termination.** `false` before start and `false` after termination; `true` in between — including while sleeping or waiting.
+
+---
+
+### 6. `currentThread()`, `getName()`, `setName()`
+
+```java
+Thread.currentThread()                 // static: reference to the thread running this line
+Thread.currentThread().getName()       // "main", "Thread-0", ...
+
+Thread t1 = new Thread(() ->
+    System.out.println(Thread.currentThread().getName()));
+t1.setName("Worker-1");                // set BEFORE start for clean logs
+t1.start();                            // prints: Worker-1
+```
+
+- Default names: `Thread-0`, `Thread-1`, …
+- **Give threads meaningful names** (`Worker-1`, `OrderProcessor-3`) — they appear in logs and thread dumps and make multithreaded debugging much easier (thread pools later name their threads "workers").
+- `getId()` is deprecated (use `threadId()`); IDs mean nothing about ordering.
+
+---
+
+### 7. Thread Priority
+
+```java
+Thread t = new Thread(() -> System.out.println("custom thread"));
+System.out.println(t.getPriority());     // 5  (default)
+t.setPriority(10);                        // 1..10 allowed
+```
+
+| Constant | Value |
+|---|---|
+| `Thread.MIN_PRIORITY` | 1 |
+| `Thread.NORM_PRIORITY` | **5** (default) |
+| `Thread.MAX_PRIORITY` | 10 |
+
+Values outside 1–10 throw `IllegalArgumentException`.
+
+**Priority is only a hint to the OS.** Higher priority means "please prefer this thread," but the OS scheduler may:
+- respect it,
+- respect it only partially, or
+- ignore it entirely.
+
+So **never rely on priority for correctness.** If `T1` has priority 10 and `T2` has 5, T1 *often* runs first — not *always*.
+
+---
+
+### 8. Daemon Threads
+
+Java threads are of two kinds:
+
+| | **User thread** | **Daemon thread** |
+|---|---|---|
+| Created by default? | **Yes** (all threads you've made so far) | No — opt in with `setDaemon(true)` |
+| Purpose | Core work of the application | **Background support** work |
+| Keeps the JVM alive? | **Yes** — JVM runs until all user threads finish | **No** — JVM may exit while daemons are still running |
+
+#### User threads outlive `main`
+
+```java
+public static void main(String[] args) {
+    new Thread(() -> { while (true) System.out.println("running"); }).start();
+}   // main ends, but the program keeps running — a user thread is still alive
+```
+
+#### Making it a daemon
+
+```java
+Thread t1 = new Thread(() -> { while (true) System.out.println("running"); });
+t1.setDaemon(true);      // MUST be called BEFORE start()
+t1.start();
+
+Thread.sleep(2000);      // main sleeps 2s; "running" prints during this time
+// main ends → no user threads left → JVM exits → daemon t1 is stopped immediately
+```
+Without the `sleep`, `main` would end instantly and `running` might print zero times.
+
+Rules:
+- **Call `setDaemon(true)` before `start()`** — afterwards it throws `IllegalThreadStateException`.
+- A new thread **inherits** the daemon status of the thread that creates it.
+- Daemon threads are killed abruptly when the JVM exits — **don't use them for work that must finish or clean up** (their `finally` blocks may never run).
+
+#### Real-world example: Garbage Collection
+
+The JVM's **garbage collector runs on daemon threads**: it should work only as long as your program does. The moment all user threads finish, the JVM exits and the GC threads vanish with it. Other typical daemon jobs: background monitoring, housekeeping, periodic cache cleanup.
+
+---
+
+### 9. Methods You Should *Not* Rely On
+
+| Method | Why avoid |
+|---|---|
+| `Thread.stop()` | Deprecated, unsafe — kills a thread mid-operation, leaving shared data inconsistent. Use `interrupt()` + flag checks. |
+| `Thread.yield()` | Only a hint; platform-dependent; no production value. |
+| `setPriority()` | Only a hint; the OS may ignore it. |
+| `getId()` | Deprecated; meaningless ordering. |
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** `t1.join()` is written in `main`. Which thread waits, and for what?
+
+*Answer:* `main` (the calling thread) waits until `t1` terminates. `main` is in `WAITING` meanwhile.
+
+> **Q2.** Difference between `sleep(2000)` and `join(2000)`?
+
+*Answer:* `sleep(2000)` always pauses the current thread for ~2 s. `join(2000)` waits **up to** 2 s for the target thread to finish and returns early if it finishes sooner. Both put the caller in `TIMED_WAITING`.
+
+> **Q3.** What does `t1.interrupt()` actually do, and why won't `while (true)` stop?
+
+*Answer:* It only sets `t1`'s interrupt flag; it doesn't force a stop. A `while (true)` loop never checks the flag, so it keeps running. Checking `isInterrupted()` in the loop condition lets the thread exit gracefully.
+
+> **Q4.** `isInterrupted()` vs. `Thread.interrupted()`?
+
+*Answer:* `isInterrupted()` is an instance method that reads the flag and leaves it unchanged. `Thread.interrupted()` is static, reads the current thread's flag and **clears** it.
+
+> **Q5.** Why can `sleep`, `join` and `wait` throw `InterruptedException`?
+
+*Answer:* Another thread may interrupt a thread that is blocked in one of them; the blocking call then throws `InterruptedException` in that thread so it can respond.
+
+> **Q6.** When does the JVM exit, and how do daemon threads affect it?
+
+*Answer:* When all **user** threads have finished. Daemon threads don't keep the JVM alive and are stopped abruptly when it exits.
+
+> **Q7.** Why doesn't a higher thread priority guarantee earlier execution?
+
+*Answer:* Priority is a hint; the OS scheduler decides, and may respect it partially or ignore it.
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] `Thread.sleep(ms)`: static; pauses the **current** thread → `TIMED_WAITING`; throws checked `InterruptedException`; **does not release held locks**.
+- [ ] `t.join()`: current thread waits for `t` to terminate (`WAITING`); `t.join(ms)` waits at most `ms` (`TIMED_WAITING`). Use it to impose ordering.
+- [ ] `Thread.yield()`: hint to let equal-priority threads run; thread stays `RUNNABLE`; may be ignored; avoid in production.
+- [ ] `t.interrupt()` **only sets a flag**; the thread must cooperate by checking `isInterrupted()` (or by reacting to `InterruptedException`).
+- [ ] `isInterrupted()` reads the flag; `Thread.interrupted()` reads **and clears** it.
+- [ ] Interrupting a thread blocked in `sleep/wait/join` makes that call throw `InterruptedException` **in the interrupted thread**; when you catch it, restore the flag with `Thread.currentThread().interrupt()` unless you've fully handled it.
+- [ ] `isAlive()` is `true` from `start()` until termination, `false` before and after.
+- [ ] `Thread.currentThread()` gives the running thread; give threads **meaningful names** via `setName` for logging/debugging.
+- [ ] Priority range **1–10**, default **5**; it's only a hint to the OS.
+- [ ] **User threads** keep the JVM alive; **daemon threads** don't. `setDaemon(true)` must be called **before** `start()`; GC is a classic daemon.
+- [ ] Never use `Thread.stop()`; don't rely on `yield()`/priority for correctness.
+
+---
+
+#### Practice Questions
+
+**Basic**
+
+1. Which thread sleeps when `main` runs `Thread.sleep(1000)`? What state is it in?
+
+2. Predict the output order with and without `t1.join()` when `t1` sleeps for 2 s before printing.
+
+3. What are the default, minimum and maximum thread priorities?
+
+**Intermediate**
+
+4. Write a worker thread that prints "working" in a loop and stops gracefully when another thread interrupts it after 2 seconds.
+
+5. A worker calls `Thread.sleep(10_000)` and is interrupted after 1 s. What happens inside the worker, and what should the `catch` block do?
+
+6. Why must `setDaemon(true)` be called before `start()`? What happens otherwise?
+
+**Advanced / Interview-style**
+
+7. Explain `join(ms)` vs. `sleep(ms)` in terms of states and in terms of *what ends the wait*.
+
+8. Your service uses daemon threads to flush buffered data to a file. Why is that risky when the JVM shuts down? What would you use instead?
+
+9. A thread holds a lock and calls `Thread.sleep(5000)`. What happens to other threads waiting for that lock? Contrast with a thread calling `wait()` on the same lock.
+
+## 50. Problems with Multithreading — Race Conditions, Atomicity, Visibility & Ordering
+
+
+
+### 1. Why Multithreaded Code Breaks
+
+With one thread, execution is deterministic. With `T1…Tn` sharing memory, **the result depends on interleaving**, which the OS scheduler controls — so you get intermittent bugs that depend on timing.
+
+Production flavour: a UPI-style wallet service where two requests debit the same account simultaneously. Each request is correct in isolation; together they overdraw the account. That's **data inconsistency**, the real damage all four problems below can cause.
+
+Core vocabulary:
+
+| Term | Meaning |
+|---|---|
+| **Shared resource** | Anything multiple threads access (a field, an object, a list, a bank account) |
+| **Critical section** | The block of code that touches the shared resource and must not be interleaved unsafely |
+| **Race condition** | Outcome depends on the order/timing in which threads execute |
+
+---
+
+### 2. Problem 1 — Race Condition (and its root cause: non-atomic operations)
+
+```java
+class Counter {
+    public int count = 0;
+    void increment() { count++; }     // looks like ONE step — it isn't
+}
+```
+
+#### `count++` is three operations
+
+```
+1. READ   count from memory
+2. ADD    1 to it
+3. WRITE  the new value back to memory
+```
+
+#### How two threads lose an update
+
+Start with `count = 0`; `T1` and `T2` each call `increment()` once. Expected final value: **2**.
+
+| Step | T1 | T2 | memory `count` |
+|---|---|---|---|
+| 1 | READ → 0 | | 0 |
+| 2 | *(context switch)* | READ → 0 | 0 |
+| 3 | ADD → 1 | | 0 |
+| 4 | | ADD → 1 | 0 |
+| 5 | WRITE 1 | | 1 |
+| 6 | | WRITE 1 | **1** ← should be 2 |
+
+Both read the same old value, so one increment is **lost**. This can happen **even with true parallelism** (two cores reading at the same instant) — it isn't only a context-switching problem.
+
+#### Demonstrating it
+
+```java
+public class Demo {
+    static class Counter { int count = 0; void increment() { count++; } }
+
+    public static void main(String[] args) throws InterruptedException {
+        Counter c1 = new Counter();
+
+        Thread t1 = new Thread(() -> { for (int i = 1; i <= 10_000; i++) c1.increment(); });
+        Thread t2 = new Thread(() -> { for (int i = 1; i <= 10_000; i++) c1.increment(); });
+
+        t1.start(); t2.start();
+        t1.join();  t2.join();                 // wait for both before reading the result
+
+        System.out.println(c1.count);          // expected 20000
+    }
+}
+```
+Typical outputs across runs: `12109`, `19669`, `11864`, … — **different every time, almost never 20000.**
+
+Notes:
+- With only **one increment per thread**, the race is so unlikely you'll almost always see `2` and think the code is fine — **a non-failing test proves nothing.** Loop many times to expose it.
+- `join()` is needed so `main` doesn't print before the threads finish.
+
+#### Critical section & shared resource in this example
+
+- **Critical section:** the body of `increment()` (`count++`).
+- **Shared resource:** `count` (reachable by both threads through the single `Counter` object `c1`).
+
+---
+
+#### 3. Problem 2 — Atomicity
+
+> An operation is **atomic** if it happens **completely or not at all** — it cannot be observed (or interrupted) half-done.
+
+#### Atomic operations (can't be split)
+
+- Simple assignment of a primitive ≤ 32 bits or a reference: `int x = 2;`, `Student s1 = new Student();` (reference assignment)
+- A single read or a single write of such a value
+
+#### Non-atomic operations (composed of several steps)
+
+| Operation | Why non-atomic |
+|---|---|
+| `count++`, `count--` | read → modify → write |
+| `x = x + 5`, `x += 5`, `x = x + y` | read → compute → write |
+| **Check-then-act** | check a condition, *then* act on it — state can change in between |
+
+#### Check-then-act: the classic business bug
+
+```java
+void withdraw(int amount) {
+    if (balance >= amount) {          // CHECK
+        balance = balance - amount;   // ACT
+    }
+}
+```
+
+Balance = ₹1000. `T1` withdraws ₹500, `T2` withdraws ₹600.
+
+| Step | T1 | T2 | balance |
+|---|---|---|---|
+| 1 | checks `1000 ≥ 500` ✓ | | 1000 |
+| 2 | *(context switch before the ACT)* | checks `1000 ≥ 600` ✓ | 1000 |
+| 3 | | `balance = 1000 - 600` | 400 |
+| 4 | resumes: `balance = 400 - 500` | | **−100** |
+
+Each thread's check was valid *when it ran*, but by the time `T1` acted, the condition was no longer true. Total withdrawn: ₹1100 from an account holding ₹1000.
+
+#### Money transfer: multi-step operations must be atomic too
+
+```
+debit A by 500   →   credit B by 500
+```
+If the thread stalls or fails between the two steps, A has lost ₹500 and B never got it. Business-level operations like this need to be **all-or-nothing** (atomic).
+
+#### An atomicity edge case: `long` and `double`
+
+A `double`/`long` is **64 bits**. The Java memory model allows a **non-volatile** `long`/`double` write to be performed as **two 32-bit writes**, so another thread could observe a half-written value. Declaring the variable **`volatile`** guarantees atomic reads/writes of it. (Most modern 64-bit JVMs do this atomically anyway, but the spec doesn't promise it.)
+
+#### How atomicity gets fixed (preview)
+
+- **`synchronized`** blocks/methods (lock-based),
+- **atomic classes** such as `AtomicInteger` (built on CAS — compare-and-swap),
+- other **locks**.
+
+Fixing atomicity fixes the `count++` race above. **(`volatile` alone does NOT make `count++` atomic.)**
+
+---
+
+### 4. Problem 3 — Visibility
+
+> One thread updates a shared variable, but **another thread doesn't see the new value** — it keeps reading a stale one.
+
+#### Why it happens (the mental model)
+
+```
+   Core 1            Core 2
+ ┌────────┐        ┌────────┐
+ │ cache  │        │ cache  │      each core keeps its own copies / registers of variables
+ └───┬────┘        └───┬────┘
+     └───────┬─────────┘
+          ┌──┴──┐
+          │ RAM │   flag = false
+          └─────┘
+```
+`T2` reads `flag` once, keeps `false` in its cache/register, and keeps re-reading **its own copy**. `T1` later sets `flag = true`, but `T2` never refreshes. For `T2`, the update is **invisible**.
+
+> **Precision note:** in real JVMs the culprit is often the **JIT compiler/CPU** keeping the value in a register or hoisting the read out of the loop (and CPU store buffers), not just "a cache." The Java Memory Model guarantees **no cross-thread visibility** unless there's a *happens-before* relationship — and `volatile`/`synchronized` create that.
+
+#### The demo
+
+```java
+public class Demo {
+    static boolean flag = false;
+
+    public static void main(String[] args) {
+        Thread t1 = new Thread(() -> {
+            try { Thread.sleep(1000); } catch (InterruptedException e) { }
+            flag = true;                                   // writer
+        });
+        Thread t2 = new Thread(() -> {
+            while (!flag) { }                              // reader: spins until flag becomes true
+            System.out.println("Thread 2 finished");
+        });
+        t1.start(); t2.start();
+    }
+}
+```
+
+Expected: after 1 second, `Thread 2 finished`.
+Actual (empty loop body): **it may never finish** — `t2` never sees `flag = true`.
+
+#### The fun surprise
+
+If the loop body contains `System.out.println(...)`, the program **appears to work**. Why? `println` is **synchronized** internally, which forces fresh reads (it creates a happens-before edge). The bug is still there — you've just accidentally masked it. A classic "works on my machine" trap.
+
+#### Fix: `volatile`
+
+```java
+static volatile boolean flag = false;
+```
+`volatile` guarantees:
+- a **write** to the variable is immediately visible to other threads,
+- a **read** always sees the most recent write (never a stale thread-local copy).
+
+Now `Thread 2 finished` prints after ~1 second.
+
+#### What `volatile` does and does not do
+
+| | `volatile` | `synchronized` |
+|---|---|---|
+| **Visibility** | ✅ | ✅ |
+| **Ordering** (no reordering across it) | ✅ | ✅ |
+| **Atomicity** of compound ops (`count++`, check-then-act) | ❌ | ✅ |
+| Uses locking? | No — lighter weight | Yes |
+
+> **Interview-gold line:** *"`volatile` fixes visibility and ordering, not atomicity. `volatile int count; count++` is still a race condition — it's still read-modify-write across three steps."*
+
+Use `volatile` for simple **flags/status variables written by one thread and read by others**; use `synchronized`/atomics when you need read-modify-write.
+
+---
+
+### 5. Problem 4 — Ordering (Instruction Reordering)
+
+You'd assume statements run top-to-bottom:
+
+```java
+int a = 1;
+int b = 2;
+```
+
+But the **compiler/JIT and the CPU may reorder** independent instructions for performance — as long as a **single thread** can't tell the difference (the "as-if-serial" guarantee). If `b = a + 1`, there's a dependency, so they won't reorder it. The guarantee covers **single-threaded** correctness only. Other threads *can* observe the reordering.
+
+#### The classic bug
+
+```java
+int x = 0;
+boolean flag = false;
+
+// Thread 1                      // Thread 2
+x = 10;                          if (flag) {
+flag = true;                         System.out.println(x);   // expect 10
+                                 }
+```
+
+If Thread 1's two assignments are **reordered** (`flag = true` first), then Thread 2 might see `flag == true` while `x` is still `0` and print **0**.
+
+This happens rarely — maybe 1 run in 10,000 in production — and is brutal to reproduce and debug.
+
+#### Fix
+
+Make `flag` **`volatile`** (writes before a volatile write can't be moved after it, and become visible to a reader that sees the new `flag`), or use `synchronized`/locks:
+
+```java
+volatile boolean flag = false;
+```
+
+---
+
+### 6. Thread Interference & Data Inconsistency
+
+> **Thread interference** = threads disturbing each other's work through shared state.
+
+Its root causes are exactly what we've seen:
+
+- **non-atomic operations**,
+- **shared mutable resources** (critical sections),
+- **race conditions**,
+- **visibility** failures,
+- **ordering** failures.
+
+The consequence is **data inconsistency** — the most dangerous outcome, because applications exist to manage data (account balances, orders, inventory). Every concurrency fix is ultimately about preserving data consistency.
+
+---
+
+### 7. Cheat-Sheet: Problem → Symptom → Fix
+
+| Problem | Symptom | Typical fix |
+|---|---|---|
+| **Race condition** | Final result depends on timing (e.g., 12109 instead of 20000) | Make the critical section **atomic**: `synchronized`, locks, atomics |
+| **Atomicity** | Operation observed half-done; lost updates; check-then-act breaks | `synchronized`, `AtomicInteger`/CAS, locks |
+| **Visibility** | A thread keeps using a stale value (e.g., spins forever) | `volatile`, `synchronized` |
+| **Ordering** | Another thread sees updates in a different order than written | `volatile`, `synchronized` |
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** Why is `count++` not thread-safe?
+
+*Answer:* It's three steps — read, add, write — so another thread can read the same old value in between, and one increment is lost.
+
+> **Q2.** Why does `count` end up less than 20000 in the two-thread demo, and why does a single increment per thread usually "work"?
+
+*Answer:* Updates are lost whenever the threads interleave inside `count++`. With only one increment each, the chance of interleaving in that tiny window is very low, so the bug usually stays hidden.
+
+> **Q3.** What's wrong with `if (balance >= amount) balance -= amount;` under concurrency?
+
+*Answer:* It's check-then-act: the condition can become false between the check and the action. Two threads can both pass the check and overdraw the account.
+
+> **Q4.** Why can the `while (!flag) {}` loop run forever even after another thread sets `flag = true`?
+
+*Answer:* A visibility problem — the reading thread keeps using its own stale copy (register/cache), since nothing forces it to see the other thread's write. `volatile` fixes this.
+
+> **Q5.** Does `volatile int count; count++;` fix the race condition?
+
+*Answer:* No. `volatile` gives visibility and ordering, but `count++` is still a three-step read-modify-write and not atomic.
+
+> **Q6.** Why does adding `System.out.println` inside the spin loop make the visibility bug disappear?
+
+*Answer:* `println` is synchronized internally, which creates happens-before synchronization and forces fresh reads — masking the bug without fixing it.
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] **Shared mutable state** + multiple threads = potential **thread interference** and **data inconsistency**.
+- [ ] **Critical section** = code that touches shared state; **shared resource** = the data it touches; **race condition** = result depends on thread timing.
+- [ ] **Atomic** operations are indivisible. Simple assignments/reads/writes of ≤32-bit primitives and references are atomic; `count++`, `x += 5`, and **check-then-act** are **not**. Non-volatile `long`/`double` may be written in two halves.
+- [ ] A test that passes once proves nothing — race conditions show up under **load and repetition**.
+- [ ] **Visibility**: without `volatile`/`synchronized`/other happens-before, a thread may never see another's write.
+- [ ] **Ordering**: compilers/CPUs may reorder instructions; only single-thread semantics are preserved.
+- [ ] **`volatile`** ⇒ visibility + ordering, **not** atomicity. Ideal for simple flags; useless for `count++`.
+- [ ] **`synchronized`** ⇒ visibility + ordering + atomicity (via locking) — more powerful, heavier.
+- [ ] Business operations like **transfer = debit + credit** must be made atomic as a whole.
+- [ ] Don't rely on incidental effects (like `println`) to "fix" concurrency bugs.
+- [ ] Fix toolbox (upcoming lectures): `synchronized`, atomic classes (`AtomicInteger`, CAS), explicit locks, `volatile`.
+
+---
+
+#### Practice Questions
+
+**Basic**
+
+1. Name the three steps hidden inside `count++`.
+
+2. List the four multithreading problems from this lecture in one line each.
+
+3. Which of these is atomic: `int x = 5;`, `x++`, `x = x + 1`, `Student s = new Student();`?
+
+**Intermediate**
+
+4. Trace two threads each running `count++` once from `count = 0` such that the final value is 1.
+
+5. Write a `volatile` boolean stop-flag pattern and explain what bug disappears. Why wouldn't `volatile` help a shared `int` counter?
+
+6. Explain, using the ₹1000 balance, ₹500 and ₹600 withdrawals, why check-then-act is a race condition.
+
+
+**Advanced / Interview-style**
+
+7. A teammate "fixed" a hanging `while(!done){}` loop by adding a `System.out.println` inside it. Explain why it appears fixed, why it isn't a real fix, and what the right fix is.
+
+8. Describe a reordering bug involving `x = 10; flag = true;` across two threads, and which keyword prevents it.
+
+9. Compare `volatile` and `synchronized` across visibility, ordering, atomicity and cost, and say when you'd pick each.
+
+
+## 51. The `synchronized` Keyword & Monitor Locks
+
+
+
+### 1. Recap: What We're Fixing
+
+```java
+class Counter {
+    int count = 0;
+    void increment() { count++; }     // critical section: read → add → write (non-atomic)
+}
+```
+Two threads each calling `increment()` 10,000 times produced counts like 12,109 instead of 20,000. We need **only one thread at a time** inside the critical section.
+
+---
+
+### 2. `synchronized` Method
+
+```java
+class Counter {
+    int count = 0;
+    synchronized void increment() { count++; }
+}
+```
+
+Running the same 2 × 10,000 demo now **always prints 20000**.
+
+Even though `count++` is still three machine steps, **only one thread can be inside `increment()` (for this object) at a time**, so a thread finishes all three steps before another starts. Context switches can still happen mid-method — but no other thread can *enter* the protected region while the first holds the lock.
+
+#### What happens step by step
+
+```
+1. T1 enters  → acquires the lock
+2. T2 tries   → lock is taken → T2 goes to BLOCKED state
+3. T1 runs the critical section (even if it gets context-switched out mid-way,
+   T2 remains BLOCKED — it cannot slip in)
+4. T1 exits   → releases the lock
+5. T2 wakes   → BLOCKED → RUNNABLE → (when scheduled) acquires the lock and enters
+```
+
+Name origin: it takes unpredictable, asynchronous thread execution and brings it into **sync** for that region.
+
+#### Watching it with sleep
+
+```java
+class Test {
+    synchronized void show() {
+        System.out.println(Thread.currentThread().getName() + " entered");
+        try { Thread.sleep(2000); } catch (InterruptedException e) { }
+        System.out.println(Thread.currentThread().getName() + " exiting");
+    }
+}
+// two threads call the same Test object's show():
+```
+Without `synchronized`: `Thread-0 entered, Thread-1 entered, …exiting, …exiting` (overlap).
+With `synchronized`: `Thread-0 entered, Thread-0 exiting, Thread-1 entered, Thread-1 exiting` — the second thread waits **two full seconds** because the first still holds the lock (sleeping inside a lock *does not release it*).
+
+---
+
+### 3. What `synchronized` Gives You
+
+| Guarantee | Meaning |
+|---|---|
+| **Mutual exclusion** | Only one thread at a time in the protected region (per lock) |
+| **Atomicity** | Multi-step operations inside appear indivisible to other threads using the same lock |
+| **Visibility** | On acquire, a thread sees all writes made by the previous holder (it effectively reads fresh values from main memory) |
+| **Ordering** | No reordering of the protected operations across the lock boundaries |
+
+So it solves **all four** problems from last lecture — at the price of locking overhead.
+
+> **Scope note:** `synchronized` restricts only the **protected block/method**. All other code in your program still runs concurrently across threads.
+
+---
+
+### 4. The Core Idea: Monitor / Intrinsic / Object Locks
+
+> **Every Java object has a built-in lock** (the *intrinsic lock*, also called a *monitor lock* or *object lock*). `synchronized` means "acquire this object's lock before entering, release it on exit." The JVM manages it.
+
+A lock is like a **permission token**: if no one holds it, you get it and enter; if someone holds it, you wait in the **BLOCKED** state.
+
+#### The lock belongs to the *object*, not the method
+
+```java
+class Test {
+    synchronized void m1() { ... }
+    synchronized void m2() { ... }
+}
+Test t = new Test();
+// T1: t.m1();     T2: t.m2();
+```
+Both `m1` and `m2` are synchronized on **the same object's lock** (`this`). While T1 is inside `m1`, T2 **cannot enter `m2`** either — even though they're different methods. (Output: `m1 entered / m1 exit / m2 entered / m2 exit`, never overlapped.)
+
+#### One object → one lock; two objects → two locks
+
+```java
+Test t1 = new Test();
+Test t2 = new Test();
+// T1: t1.m1();     T2: t2.m1();    → different objects, different locks → run concurrently
+```
+
+| Situation | Can two threads run the protected code simultaneously? |
+|---|---|
+| Same object, same or different `synchronized` instance methods | **No** — same lock |
+| Different objects of the same class | **Yes** — different locks |
+
+#### Conceptual picture of a lock (not real code)
+
+```
+Lock {
+   ownerThread: null        // who holds it
+   isLocked:   false
+   waitingQueue: []         // BLOCKED threads waiting for it
+}
+acquire:  if (!isLocked) { isLocked = true; ownerThread = current; }
+          else            { waitingQueue.add(current); → BLOCKED }
+```
+Obvious worry: "isn't that check-then-act — two threads could both see `isLocked == false`?" Real implementations avoid it because the acquire operation is done **atomically at the hardware level** via **compare-and-swap (CAS)** — a topic coming soon.
+
+---
+
+### 5. `synchronized` Blocks
+
+Use a block when only **part** of a method is the critical section — locking less code means less waiting.
+
+```java
+void increment() {
+    // ... non-critical work (runs concurrently) ...
+
+    synchronized (this) {        // lock THIS object's lock
+        count++;                 // only this part is serialized
+    }
+
+    // ... more non-critical work ...
+}
+```
+
+- `synchronized void increment() { ... }` **≡** `void increment() { synchronized (this) { ... } }` (same lock, but the method form covers the whole body).
+- The expression in parentheses is **the object whose lock you take**. You must supply one.
+
+---
+
+### 6. Custom Lock Objects
+
+Since *any* object can act as a lock, you can create dedicated lock objects:
+
+```java
+class Bank {
+    private final Object depositLock  = new Object();
+    private final Object withdrawLock = new Object();
+
+    void deposit() {
+        synchronized (depositLock) { /* deposit logic */ }
+    }
+    void withdraw() {
+        synchronized (withdrawLock) { /* withdraw logic */ }
+    }
+}
+```
+
+With `synchronized (this)` (or synchronized methods), `deposit` and `withdraw` share one lock → they exclude each other. With **separate lock objects**:
+- two threads can't be in `deposit()` at once (same `depositLock`),
+- two threads can't be in `withdraw()` at once (same `withdrawLock`),
+- **but one thread in `deposit()` and another in `withdraw()` can run concurrently** — more parallelism.
+
+> **Caution:** use separate locks only when the two critical sections touch **independent** state. If `deposit` and `withdraw` both modify the same `balance`, they must share a lock — otherwise you reintroduce the race condition.
+
+**Good practice:** make lock objects `private final` so no outside code can lock on them or swap them out.
+
+#### Pitfall: a new lock object each time = no lock at all
+
+```java
+synchronized (new Object()) {      // BUG
+    // critical section
+}
+```
+Every call creates a **fresh object with its own fresh lock**, so every thread acquires a *different* lock and nobody excludes anybody. The code looks synchronized but isn't. The lock object must be **the same shared instance** for all threads.
+
+---
+
+#### 7. Static `synchronized` — The Class Lock
+
+`static` members belong to the **class**, not any object, so there's no `this`. A static synchronized method locks the **class object** (`Counter.class`):
+
+```java
+class Counter {
+    static int count = 0;
+
+    static synchronized void increment() { count++; }
+}
+```
+is equivalent to:
+```java
+static void increment() {
+    synchronized (Counter.class) { count++; }
+}
+```
+
+- One class → one class lock (shared by all threads, regardless of how many instances exist).
+- **Class lock and object lock are independent:**
+
+```java
+class Test {
+    static void m1() { synchronized (Test.class) { ... } }   // class lock
+    void        m2() { synchronized (this)       { ... } }   // object lock
+}
+// T1: Test.m1();   T2: new Test().m2();   → different locks → both run at once
+```
+
+| Lock taken on | Used by | Scope |
+|---|---|---|
+| `this` / an instance | synchronized instance methods/blocks | per object |
+| `SomeClass.class` | synchronized **static** methods / `synchronized(SomeClass.class)` | per class |
+| any other shared object | `synchronized(lockObj)` | per that object |
+
+---
+
+#### 8. Cost and Alternatives
+
+`synchronized` isn't free:
+- threads **wait** (BLOCKED) and wake up, with scheduling and context-switching overhead,
+- it serializes work, reducing parallelism,
+- **overusing it slows your program**.
+
+Hence modern code limits its scope (blocks over methods, tiny critical sections, separate locks for independent state) and reaches for alternatives where appropriate — **atomic classes** (CAS-based, lock-free), **`java.util.concurrent` locks**, **optimistic locking** — covered in upcoming lectures.
+
+(Also worth knowing: intrinsic locks are **reentrant** — a thread that already holds a lock can enter another `synchronized` region on the same lock without blocking itself.)
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** Does `synchronized void increment()` lock the *method*?
+
+*Answer:* No — it acquires the intrinsic lock of the object (`this`) on which the method is invoked. The lock belongs to the object, so *every* synchronized instance method on that object is guarded by the same lock.
+
+> **Q2.** T1 is inside `obj.m1()` (synchronized). Can T2 enter `obj.m2()` (also synchronized)?
+
+*Answer:* No — both need `obj`'s lock; T2 goes to `BLOCKED` until T1 exits `m1`.
+
+> **Q3.** T1 calls `a.m1()` and T2 calls `b.m1()` where `a` and `b` are different objects of the same class. Blocked?
+
+*Answer:* No. Different objects have different locks, so both run concurrently.
+
+> **Q4.** What does `synchronized (new Object()) { ... }` achieve?
+
+*Answer:* Nothing. Each execution creates a new object and acquires its brand-new lock, so threads never contend. The lock object must be a shared instance.
+
+> **Q5.** What does a `static synchronized` method lock, and does it conflict with `synchronized` instance methods?
+
+*Answer:* It locks the `Class` object (`ClassName.class`). That's independent of any instance's lock, so static-synchronized and instance-synchronized code can run at the same time.
+
+> **Q6.** Why use `synchronized` blocks rather than synchronized methods?
+
+*Answer:* To lock only the minimal critical section, keeping the rest of the method concurrent and reducing contention/overhead.
+
+> **Q7.** Name three guarantees `synchronized` provides beyond mutual exclusion.
+
+*Answer:* Atomicity of the protected region, visibility of writes between lock holders, and ordering (no reordering across lock boundaries).
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] **Every Java object has an intrinsic (monitor) lock**; `synchronized` acquires it. The lock belongs to an **object (or class)**, never to a method.
+- [ ] A thread that can't get the lock enters **BLOCKED**; when the holder exits (or the lock is released) it becomes **RUNNABLE** and tries again.
+- [ ] `synchronized` provides **mutual exclusion, atomicity, visibility and ordering** for the guarded region.
+- [ ] **All synchronized instance methods of one object share one lock** — different methods still block each other.
+- [ ] **Different objects → different locks** → no mutual blocking between them.
+- [ ] `synchronized` method ≡ `synchronized(this)` over the whole body; prefer a **block** to minimize the locked region.
+- [ ] **Custom `private final Object` locks** let independent critical sections run in parallel — only use separate locks when the guarded state is truly independent.
+- [ ] **Never `synchronized(new Object())`** — a different lock every time means no protection.
+- [ ] **Static synchronized** locks the **class** (`X.class`); it is **independent** of instance locks.
+- [ ] A thread holding a lock that sleeps (`Thread.sleep`) **keeps** the lock; others stay blocked.
+- [ ] Only the synchronized region is serialized — everything else stays concurrent.
+- [ ] `synchronized` has real overhead; over-synchronizing hurts performance — prefer minimal scopes and, where suitable, atomics/other locks (coming next).
+
+---
+
+#### Practice Questions
+
+**Basic**
+
+1. Make `Counter.increment()` thread-safe in two ways: as a synchronized method and as a synchronized block.
+
+2. Which object's lock does a `synchronized` instance method use? A `static synchronized` method?
+
+3. What thread state does a thread enter when it can't acquire a lock?
+
+**Intermediate**
+
+4. A class has `synchronized void m1()` and `synchronized void m2()`; one object, two threads (T1→`m1`, T2→`m2`). Do they overlap? Explain with locks. What if each thread uses its own object?
+
+5. Rewrite a `Bank` with separate `depositLock` and `withdrawLock`. In what scenario is this *wrong*?
+
+6. Predict and explain: `static void m1() { synchronized(Test.class) {...} }` and `void m2() { synchronized(this) {...} }`, T1 calls `Test.m1()`, T2 calls `obj.m2()`.
+
+**Advanced / Interview-style**
+
+7. A teammate writes `synchronized (new Object()) { counter++; }` "to be safe." Why does the race condition remain, and how do you fix it?
+
+8. A synchronized region calls `Thread.sleep(5000)`. What happens to other threads waiting on that lock, and why is that a design smell?
+
+9. Explain how `synchronized` fixes both the lost-update problem *and* the visibility problem — and why it's heavier than `volatile`.
+
+
 ```java
 // ^###(?=\s)
 // ^\s*---\s*$

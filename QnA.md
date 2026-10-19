@@ -965,7 +965,7 @@ Use cases → Shared configuration, counters, constants, class-level state.
 
 ### Collections
 
-# Why do we need collections in Java?
+#### Why do we need collections in Java?
 We use collections in Java when we need to store and work with multiple objects. Unlike arrays, collections can grow or shrink dynamically and provide different types of data structures based on our requirement.
 
 For example, we use a `List` when we want to maintain order, a `Set` when we don't want duplicates, and a `Map` when we want to store data as key-value pairs.
@@ -986,12 +986,12 @@ Generics → Provide type safety, e.g. List<String>.
 Backend use → Users, database results, IDs, tasks, configuration, etc.
 ```
 
-# What are the important interfaces in the collection hierarchy?
+#### What are the important interfaces in the collection hierarchy?
 The main interfaces in the Java Collection hierarchy are Collection, List, Set, Queue, and Deque. Collection provides common operations for groups of objects. List is used when we need ordered data and can allow duplicates, Set is used for unique elements, Queue is used for processing elements in a particular order, and Deque allows operations from both ends.
 
 There is also Map, which is part of the Java Collections Framework, but it is not a child of the Collection interface because it stores data as key-value pairs.
 
-# What are the important methods that are declared in the collection interface?
+#### What are the important methods that are declared in the collection interface?
 The `Collection` interface provides common methods that are used to work with a group of objects. The important ones are `add()`, `remove()`, `contains()`, `size()`, `isEmpty()`, `clear()`, and `iterator()`.
 
 For adding multiple elements, we have `addAll()`, and for checking multiple elements, we have `containsAll()`. These methods are common across collection types like `List`, `Set`, and `Queue`, although their exact behavior can differ depending on the implementation.
@@ -1008,7 +1008,7 @@ clear() → Removes all elements.
 iterator() → Used to traverse the collection.
 ```
 
-# Can you explain briefly about the List interface?
+#### Can you explain briefly about the List interface?
 List is an interface in the Java Collections Framework that we use when we need to store multiple elements in a specific order. It maintains insertion order, allows duplicate elements, and provides index-based access, so we can get or update an element using its position. Common implementations are ArrayList, LinkedList, and Vector. In practice, ArrayList is usually my default choice when I need a general-purpose list, while I would choose another implementation based on the specific requirement.
 ```
 List → Ordered collection of elements.
@@ -1020,7 +1020,7 @@ ArrayList → Common default choice.
 List can contain null → Generally yes, depending on implementation.
 ```
 
-# Explain about ArrayList with an example?
+#### Explain about ArrayList with an example?
 ArrayList is a resizable array implementation of the List interface. I would use it when I need an ordered collection that allows duplicates and provides fast index-based access. Its size grows automatically as elements are added, unlike a normal array.
 
 Internally, it uses an array, and when the current capacity is not enough, it grows the underlying array and copies the existing elements. Reading an element by index is efficient, while inserting or removing elements in the middle can be more expensive because the remaining elements may need to be shifted.
@@ -1047,7 +1047,7 @@ End add → O(1) amortized.
 Default List choice → Usually ArrayList unless another requirement exists.
 Not synchronized → Multiple threads modifying it concurrently need external/thread-safe handling.
 ```
-# How do you iterate around an ArrayList using iterator?
+#### How do you iterate around an ArrayList using iterator?
 To iterate over an ArrayList using an Iterator, I first call the iterator() method on the list, which returns an Iterator. Then I use hasNext() to check whether another element is available and next() to retrieve it.
 
 One advantage of using an iterator is that it provides a standard way to traverse collections, and it also allows safe removal of elements during iteration using iterator.remove(). This is preferable to directly modifying the list while iterating, which can otherwise result in a ConcurrentModificationException.
@@ -1111,7 +1111,7 @@ remove() → Safely removes the last element returned by next().
 Why Iterator? → Standard traversal + safe removal during iteration.
 Direct list modification during iteration → Can cause ConcurrentModificationException.
 ```
-# How do you sort an ArrayList?
+#### How do you sort an ArrayList?
 For an ArrayList, I can sort the elements using Collections.sort() or, in modern Java, the List.sort() method. By default, elements are sorted according to their natural ordering, such as numbers in ascending order or strings alphabetically. If I need a different order, I can provide a Comparator.
 
 For example, Collections.sort(numbers) sorts a list of integers in ascending order, while numbers.sort(Comparator.reverseOrder()) sorts them in descending order. For custom objects, I would normally use a Comparator to define the sorting logic based on the required field.
@@ -1178,7 +1178,7 @@ reverseOrder() → Descending order.
 Custom objects → Usually sort using Comparator.
 ```
 
-# How do you sort elements in an ArrayList using comparable interface?
+#### How do you sort elements in an ArrayList using comparable interface?
 To sort an ArrayList using Comparable, I make the element class implement Comparable<T> and provide the natural ordering in the compareTo() method. Then I can use Collections.sort() or list.sort(null) to sort the list.
 
 For example, if I want Employee objects to be sorted by employee ID, I implement compareTo() using the ID. compareTo() returns a negative value when the current object should come before the other object, zero when they are equal for ordering, and a positive value when it should come after.
@@ -1234,7 +1234,7 @@ Comparable → Best when the class has one clear natural ordering.
 Comparator → Better when multiple/custom sorting rules are needed.
 Integer.compare() → Prefer it over subtraction for integer comparison.
 ```
-# How do you sort elements in an ArrayList using comparator interface?
+#### How do you sort elements in an ArrayList using comparator interface?
 Comparator is used when I want to define custom sorting logic separately from the class being sorted. I create a Comparator<T> that compares two objects and then pass it to Collections.sort() or the list's sort() method.
 
 For example, if I have an Employee list, I can create one comparator to sort by salary, another by name, and another by ID. This is more flexible than Comparable, where the class itself defines one natural ordering.
@@ -1293,19 +1293,19 @@ Comparable → One natural/default order inside the class.
 Comparator → Multiple/custom orders outside the class.
 ```
 
-# What is vector class? How is it different from an ArrayList?
+#### What is vector class? How is it different from an ArrayList?
 Vector is a legacy, growable-array implementation of the List interface, so functionally it is very similar to ArrayList. The main difference is that Vector provides synchronization on its methods, while ArrayList is not synchronized. Because of that synchronization, Vector can have more overhead and is generally not the preferred choice in modern Java applications.
 
 If I need a normal list, I would usually use ArrayList. If I need thread-safe access, I would choose the concurrency approach based on the requirement rather than automatically using Vector, for example CopyOnWriteArrayList for read-heavy scenarios or a synchronized wrapper where appropriate.
 
-# What is linkedList? What interfaces does it implement? How is it different from an ArrayList?
+#### What is linkedList? What interfaces does it implement? How is it different from an ArrayList?
 LinkedList is a doubly linked list implementation of the List and Deque interfaces. It stores elements as nodes, where each node keeps references to the previous and next node. Because of this, adding or removing elements at the beginning or end is efficient, and it can also be used as a queue or double-ended queue.
 
 The main difference from ArrayList is the underlying data structure. ArrayList uses a dynamic array, so it provides fast index-based access, typically O(1). LinkedList has to traverse the nodes to reach an index, so index-based access is O(n). LinkedList also has more memory overhead because each node stores additional links.
 
 In practice, I would generally choose ArrayList as the default List implementation and use LinkedList when I specifically need efficient deque operations or have a use case that benefits from linked-node insertion and removal.
 
-# Can you briefly explain about the Set interface?
+#### Can you briefly explain about the Set interface?
 Set is an interface in the Java Collections Framework that is used when we need a collection of unique elements. Unlike List, it does not allow duplicates and it doesn't provide index-based access. The commonly used implementations are HashSet, LinkedHashSet, and TreeSet. HashSet is generally used when we only care about uniqueness, LinkedHashSet when we also want to maintain insertion order, and TreeSet when we want the elements to remain sorted.
 ```
 Set → Stores unique elements; duplicates are not allowed.
@@ -1316,7 +1316,7 @@ TreeSet → Unique + sorted order.
 Set vs List → Set focuses on uniqueness; List allows duplicates and supports index access.
 ```
 
-# What are the important interfaces related to the Set interface?
+#### What are the important interfaces related to the Set interface?
 The main interfaces related to Set are Set, SortedSet, and NavigableSet. Set provides the basic contract for unique elements. SortedSet extends it when we need the elements to remain sorted, and NavigableSet extends SortedSet with methods that help us find elements relative to a given value, such as the nearest lower or higher element.
 
 The common implementation we see for sorted and navigable sets is TreeSet, while HashSet is commonly used when we only need uniqueness without sorted order.
@@ -1333,7 +1333,7 @@ floor() → Smaller than or equal to given value.
 ceiling() → Greater than or equal to given value.
 ```
 
-# What is the difference between Set and sortedSet interfaces?
+#### What is the difference between Set and sortedSet interfaces?
 Both Set and SortedSet don't allow duplicate elements. The difference is that Set doesn't define any sorting requirement, while SortedSet maintains its elements according to a defined sort order. SortedSet also provides additional methods for working with the sorted range, such as getting the first and last elements or creating subsets.
 
 For example, I would use HashSet when I only care about uniqueness, while I would use TreeSet, which implements SortedSet, when I need the unique elements to remain sorted.
@@ -1346,7 +1346,7 @@ TreeSet → Implements SortedSet/NavigableSet and keeps elements sorted.
 SortedSet → Adds sorted-set operations such as first(), last(), headSet(), tailSet(), subSet().
 ```
 
-# Can you give examples of classes that implement the Set interface?
+#### Can you give examples of classes that implement the Set interface?
 The most commonly used classes that implement Set are HashSet, LinkedHashSet, and TreeSet. HashSet is used when I mainly need unique elements without depending on a particular order. LinkedHashSet maintains insertion order along with uniqueness, and TreeSet keeps the unique elements sorted. So the choice depends on whether I need just uniqueness, uniqueness with insertion order, or uniqueness with sorted order.
 
 ```
@@ -1356,7 +1356,7 @@ TreeSet → Unique + sorted order.
 TreeSet → Implements NavigableSet → SortedSet → Set.
 ```
 
-# What is a HashSet?
+#### What is a HashSet?
 HashSet is a Set implementation that stores unique elements using hashing. It doesn't maintain any guaranteed insertion or sorted order, but it provides efficient average-time operations for adding, removing, and checking elements. Internally, it uses hashCode() to find the appropriate location and equals() to check whether an equivalent element already exists.
 
 I would use HashSet when I mainly need uniqueness and fast membership checks, and I don't need the elements in any particular order. If I need insertion order, I would consider LinkedHashSet, and if I need sorted elements, I would consider TreeSet.
@@ -1375,7 +1375,7 @@ LinkedHashSet → Use when insertion order is needed.
 TreeSet → Use when sorted order is needed.
 ```
 
-# What is a linkedHashSet? How is different from a HashSet?
+#### What is a linkedHashSet? How is different from a HashSet?
 LinkedHashSet is a Set implementation that uses hashing to store unique elements, similar to HashSet, but it also maintains the insertion order of the elements. HashSet doesn't guarantee any iteration order.
 
 So, I would use HashSet when I only care about uniqueness, and LinkedHashSet when I need uniqueness while also preserving the order in which elements were added. LinkedHashSet has some additional memory and performance overhead because it maintains the linked structure needed to preserve that order.
@@ -1395,7 +1395,7 @@ LinkedHashSet = UNIQUE + INSERTION ORDER
 TreeSet       = UNIQUE + SORTED
 ```
 
-# What is a TreeSet? How is different from a HashSet?
+#### What is a TreeSet? How is different from a HashSet?
 TreeSet is a Set implementation that stores unique elements and keeps them sorted. Unlike HashSet, which mainly gives us fast uniqueness checks without guaranteeing an order, TreeSet maintains elements according to their natural ordering or a supplied Comparator.
 
 Because TreeSet has to maintain sorted order, its basic operations like add(), remove(), and contains() are generally O(log n), while HashSet provides O(1) average-time performance for those operations under normal hashing conditions. TreeSet also implements NavigableSet, so we get operations such as finding the nearest lower or higher element.
@@ -1413,7 +1413,7 @@ Use HashSet → Uniqueness + fast average lookup.
 Use TreeSet → Uniqueness + sorted order + navigation.
 ```
 
-# Can you give examples of implementations of navigableSet?
+#### Can you give examples of implementations of navigableSet?
 The two important implementations of NavigableSet are TreeSet and ConcurrentSkipListSet. TreeSet is the common choice when I need a sorted set with navigation operations like floor(), ceiling(), lower(), and higher(). ConcurrentSkipListSet provides similar sorted and navigable behavior but is designed for concurrent access by multiple threads.
 
 So for normal use, I would generally choose TreeSet, while ConcurrentSkipListSet is more appropriate when I specifically need a thread-safe sorted set.
@@ -1426,7 +1426,7 @@ ConcurrentSkipListSet → Use when concurrent access is required.
 Navigation → lower(), higher(), floor(), ceiling().
 ```
 
-# Explain briefly about Queue interface?
+#### Explain briefly about Queue interface?
 `Queue` is an interface in the Java Collections Framework that represents a collection where elements are typically processed in a particular order. The common queue behavior is FIFO, where the element added first is processed first.
 
 The main methods I use are `offer()` or `add()` to insert, `poll()` or `remove()` to remove the head, and `peek()` or `element()` to check the head without removing it.
@@ -1443,7 +1443,7 @@ PriorityQueue → Processes by priority/natural order, not simple FIFO.
 ArrayDeque → Efficient general-purpose queue/deque.
 ```
 
-# What are the important interfaces related to the Queue interface?
+#### What are the important interfaces related to the Queue interface?
 The main interfaces related to Queue are Deque and BlockingQueue. Deque extends Queue and allows elements to be added or removed from both ends, so it can be used as both a queue and a stack. BlockingQueue is part of the concurrent collections and is designed for producer-consumer scenarios where threads may need to wait when the queue is empty or full.
 
 For normal queue operations, implementations like ArrayDeque are common, while BlockingQueue implementations such as ArrayBlockingQueue or LinkedBlockingQueue are useful when multiple threads are involved.
@@ -1461,7 +1461,7 @@ Deque          → Process from both ends
 BlockingQueue  → Queue + thread waiting
 ```
 
-# Explain about the Deque interface?
+#### Explain about the Deque interface?
 Deque stands for Double Ended Queue and extends the Queue interface. It allows us to insert and remove elements from both ends of the collection. Because of that, it can be used both as a normal queue and as a stack.
 
 For example, I can use addFirst() and removeFirst() to work from the front, or addLast() and removeLast() to work from the rear. ArrayDeque is generally the preferred implementation for normal queue or stack-like operations because it is efficient and doesn't have the overhead of linked nodes.
@@ -1475,7 +1475,7 @@ Implementations → ArrayDeque, LinkedList.
 Preferred general implementation → ArrayDeque.
 ```
 
-# Explain the BlockingQueue interface?
+#### Explain the BlockingQueue interface?
 BlockingQueue is a thread-safe queue designed mainly for communication between multiple threads. Its main feature is that certain operations can block when the queue is full or empty. For example, put() waits if a bounded queue is full, and take() waits if the queue is empty.
 
 It is commonly used in producer-consumer scenarios, where one or more threads produce tasks or data and other threads consume them. Common implementations include ArrayBlockingQueue, LinkedBlockingQueue, and PriorityBlockingQueue.
@@ -1547,7 +1547,7 @@ Task 3 → producer waits
 ```
 That's the main idea behind BlockingQueue.
 
-# What is a priorityQueue?
+#### What is a priorityQueue?
 PriorityQueue is a Queue implementation where elements are processed according to their priority rather than insertion order. By default, the smallest element according to natural ordering has the highest priority, but we can provide a Comparator to define a different priority.
 
 For example, if I add 30, 10, and 20, calling poll() returns 10 first, then 20, then 30. Internally, it uses a priority-heap structure, which makes retrieving the highest-priority element efficient. I would use PriorityQueue when the next element to process should be based on priority rather than simple FIFO order.
@@ -1594,7 +1594,7 @@ Task next = tasks.poll();
 System.out.println(next.name); // Production issue because it has the highest priority.
 ```
 
-# Can you give example implementations of the BlockingQueue interface?
+#### Can you give example implementations of the BlockingQueue interface?
 Some important implementations of BlockingQueue are ArrayBlockingQueue, LinkedBlockingQueue, PriorityBlockingQueue, DelayQueue, SynchronousQueue, and LinkedTransferQueue.
 
 ArrayBlockingQueue is useful when I need a fixed-size bounded queue, LinkedBlockingQueue is a general-purpose blocking queue, and PriorityBlockingQueue is useful when elements need to be processed by priority. DelayQueue is used when elements should become available only after a delay, while SynchronousQueue is useful for direct handoff between producer and consumer threads.
@@ -1617,7 +1617,7 @@ SynchronousQueue        → Direct handoff
 LinkedTransferQueue    → Transfer between threads
 ```
 
-# Can you briefly explain about the Map interface?
+#### Can you briefly explain about the Map interface?
 Map is an interface in the Java Collections Framework used to store data as key-value pairs. Each key must be unique, while values can be duplicated. We use the key to retrieve, update, or remove its associated value.
 
 Common implementations are HashMap when we mainly need fast key-based lookup, LinkedHashMap when we also want to maintain insertion order, and TreeMap when we need the keys to remain sorted. Map is part of the Collections Framework, but it doesn't extend the Collection interface because it stores mappings rather than individual elements.
@@ -1634,7 +1634,7 @@ ConcurrentHashMap → Designed for concurrent access.
 Map ≠ Collection → Separate hierarchy inside Collections Framework.
 ```
 
-# What is difference between Map and sortedMap?
+#### What is difference between Map and sortedMap?
 Map is used to store key-value pairs without imposing a general ordering requirement on the keys, while SortedMap extends Map and maintains its keys in sorted order. The sorting is normally based on the key's natural ordering, or we can provide a comparator.
 
 SortedMap also provides additional methods for working with ranges of keys, such as firstKey(), lastKey(), headMap(), tailMap(), and subMap(). A common implementation is TreeMap. So I would use a regular Map, such as HashMap, when key ordering doesn't matter, and a sorted map such as TreeMap when I need the keys to remain sorted.
@@ -1649,7 +1649,7 @@ Common SortedMap implementation → TreeMap.
 Extra methods → firstKey(), lastKey(), headMap(), tailMap(), subMap().
 ```
 
-# What is a HashMap?
+#### What is a HashMap?
 HashMap is a hash-based implementation of the Map interface that stores data as key-value pairs. Each key is unique, and we use the key to quickly access its associated value. Internally, it uses the key's hashCode() to find the appropriate bucket and uses equals() to identify the matching key when necessary.
 
 put(), get(), and remove() are generally O(1) on average, although performance can degrade in collision-heavy situations. HashMap doesn't maintain insertion or sorted order. I would typically use it when I need fast key-based lookup and don't care about the order of the entries.
@@ -1667,7 +1667,7 @@ Duplicate key → New value replaces old value.
 Use case → Fast key-based lookup.
 ```
 
-# What are the different methods in a Hash Map?
+#### What are the different methods in a Hash Map?
 The commonly used HashMap methods are put() to add or update a key-value pair, get() to retrieve a value using a key, and remove() to remove an entry. We also have containsKey() and containsValue() to check whether a key or value exists, size() and isEmpty() to check the map's state, and clear() to remove all entries.
 
 For iterating over a map, I commonly use keySet(), values(), or entrySet(). entrySet() is especially useful when I need both the key and value. There are also useful methods such as getOrDefault() and putIfAbsent() for handling common cases without writing extra checks.
@@ -1688,7 +1688,7 @@ putIfAbsent() → Add only if key doesn't already exist.
 replace() → Replace value for an existing key.
 ```
 
-# What is a TreeMap? How is different from a HashMap?
+#### What is a TreeMap? How is different from a HashMap?
 TreeMap is a Map implementation that keeps its keys sorted. Internally, it uses a Red-Black tree, so operations like put(), get(), and remove() take O(log n) time.
 
 The main difference from HashMap is that HashMap uses hashing and doesn't guarantee any ordering, while TreeMap maintains sorted order of the keys. HashMap generally provides O(1) average-time lookup, whereas TreeMap provides O(log n) operations.
@@ -1707,7 +1707,7 @@ TreeMap → Useful for sorted keys and range/navigation operations.
 HashMap → Usually better when only fast key lookup is needed.
 ```
 
-# Can you give an example of implementation of navigableMap interface?
+#### Can you give an example of implementation of navigableMap interface?
 The most commonly used implementation of NavigableMap is TreeMap. It keeps keys sorted and provides navigation methods such as lowerKey(), higherKey(), floorKey(), and ceilingKey(). For example, if I have keys 10, 20, and 30, I can use these methods to find the nearest key relative to a given value.
 
 Another implementation is ConcurrentSkipListMap, which provides similar sorted and navigable behavior but is designed for concurrent access. So I would normally use TreeMap for regular use and ConcurrentSkipListMap when I specifically need concurrent access.
@@ -1722,7 +1722,7 @@ ceilingKey(k) → Smallest key ≥ k.
 Hierarchy → Map → SortedMap → NavigableMap.
 ```
 
-# What are the static methods present in the collections class?
+#### What are the static methods present in the collections class?
 Collections is a utility class that provides static methods for performing common operations on collections. Some of the important methods are sort() for sorting, binarySearch() for searching, reverse() and shuffle() for changing order, min() and max() for finding values, and methods like frequency(), swap(), and replaceAll() for other common operations.
 
 It also provides wrapper methods such as synchronizedList() and unmodifiableList() when we need a synchronized or read-only view of a collection. These are utility methods, so we call them directly using Collections.methodName() rather than creating a Collections object.
@@ -1747,7 +1747,7 @@ It also provides wrapper methods such as synchronizedList() and unmodifiableList
 | `emptyList()`        | Returns an empty immutable list          |
 ```
 
-# What is the difference between synchronized and concurrent collections in Java?
+#### What is the difference between synchronized and concurrent collections in Java?
 Both synchronized and concurrent collections provide thread-safe access, but they are designed differently. Synchronized collections generally use synchronization to protect operations, which can cause more contention because threads may have to wait for the same lock. Concurrent collections are specifically designed for multithreaded access and use more scalable techniques so multiple threads can work with the collection with less blocking.
 
 For example, Collections.synchronizedList() provides a synchronized wrapper around a normal list, while CopyOnWriteArrayList and ConcurrentHashMap are concurrent collection implementations designed specifically for concurrent workloads. In practice, I would choose a concurrent collection when I expect significant concurrent access and need better scalability, rather than simply synchronizing a normal collection.
@@ -1764,7 +1764,7 @@ Concurrent iterators     → Have their own concurrency behavior, often weakly c
 Concurrent ≠ lock-free    → Some concurrent collections still use locks internally.
 ```
 
-# Explain about the new concurrent collections in Java?
+#### Explain about the new concurrent collections in Java?
 Java introduced the concurrent collection classes in the java.util.concurrent package to handle collections safely when multiple threads access them at the same time. Important examples are ConcurrentHashMap, CopyOnWriteArrayList, ConcurrentLinkedQueue, BlockingQueue, ConcurrentSkipListMap, and ConcurrentSkipListSet.
 
 Each one is designed for a different concurrent use case. ConcurrentHashMap is used for concurrent key-value operations, CopyOnWriteArrayList is useful when reads are much more frequent than writes, BlockingQueue is useful for producer-consumer scenarios, and the skip-list collections provide thread-safe sorted maps and sets.
@@ -1785,7 +1785,7 @@ Package → java.util.concurrent.
 ```
 - Concurrent collections aren't just "synchronized versions" of normal collections; they are specifically designed to allow multiple threads to work safely and, where possible, efficiently at the same time.
 
-# Explain about copyonwrite concurrent collections approach?
+#### Explain about copyonwrite concurrent collections approach?
 Copy-on-Write is a concurrency approach where a collection creates a new copy of its underlying data whenever a write happens, instead of modifying the existing data in place. The main advantage is that reads can happen without the same locking overhead, making it useful when reads are much more frequent than writes.
 
 CopyOnWriteArrayList is a common example. Its iterators also work on a snapshot of the collection, so they can safely iterate even if another thread modifies the list. The trade-off is that every write requires copying the underlying array, so it can be expensive in terms of time and memory.
@@ -1803,7 +1803,7 @@ Bad use → Write-heavy collections.
 Trade-off → More memory and more expensive writes.
 ```
 
-# What is compareandswap approach?
+#### What is compareandswap approach?
 Compare-and-Swap, or CAS, is a synchronization technique where a thread updates a value only if the current value is still equal to an expected value. If another thread has changed the value in the meantime, the CAS operation fails instead of overwriting it.
 
 CAS is commonly used in Java's atomic classes such as AtomicInteger, AtomicLong, and AtomicReference. It allows certain updates to be performed without traditional locking, which can reduce thread contention and improve scalability for suitable workloads.
@@ -1821,7 +1821,7 @@ CAS ≠ always faster → Heavy contention can cause repeated retries.
 CAS → Good for small atomic state updates.
 ```
 
-# What is a lock? How is it different from using synchronized approach?
+#### What is a lock? How is it different from using synchronized approach?
 A lock is a synchronization mechanism used to control access to shared resources when multiple threads are running. Java provides the Lock interface, commonly implemented by ReentrantLock, which gives us explicit control over acquiring and releasing the lock.
 
 synchronized is simpler and built into the Java language. When a thread enters a synchronized method or block, it acquires the object's intrinsic lock, and Java automatically releases it when the block or method exits. With Lock, we explicitly call lock() and unlock(), but in return we get more control, such as tryLock(), timed locking, interruptible locking, fairness options, and multiple Condition objects.
@@ -1841,7 +1841,7 @@ synchronized → Prefer for simple locking.
 Lock → Use when advanced locking control is actually needed.
 ```
 
-# What is initial capacity of a Java collection?
+#### What is initial capacity of a Java collection?
 Initial capacity is the amount of internal storage a collection is initially prepared to use before it needs to resize or expand. It is implementation-specific, so there isn't one default capacity for every Java collection. For example, an ArrayList can be created with an initial capacity such as new ArrayList<>(100). Setting an appropriate capacity can reduce the number of resizing and copying operations when we already know roughly how many elements the collection will hold.
 
 Also, initial capacity and size are different: size is the number of elements currently stored, while capacity refers to the available internal storage.
@@ -1855,7 +1855,7 @@ Why specify capacity? → Reduce resizing/copying when expected size is known.
 new ArrayList<>(100) → Creates a list with initial capacity for about 100 elements.
 ```
 
-# What is load factor?
+#### What is load factor?
 Load factor is the value that determines how full a hash-based collection, such as HashMap, can become before it resizes. The default load factor of HashMap is 0.75, so for an initial capacity of 16, the resize threshold is 16 × 0.75 = 12 entries. Once the threshold is reached, the map increases its internal capacity and redistributes the entries.
 
 A higher load factor means better memory usage but potentially more collisions, while a lower load factor means fewer collisions but more memory usage. So 0.75 is a commonly used balance between memory and lookup performance.
@@ -1870,7 +1870,7 @@ Lower load factor → More memory, potentially fewer collisions.
 Load factor → Mainly relevant to hash-based collections.
 ```
 
-# When does a Java collection throw UnsupportedOperationException?
+#### When does a Java collection throw UnsupportedOperationException?
 UnsupportedOperationException is thrown when we perform a collection operation that the particular collection or view does not support, most commonly a modification operation. For example, Arrays.asList() gives a fixed-size list, so add() and remove() throw UnsupportedOperationException, although set() is allowed. Similarly, Collections.unmodifiableList() or List.of() provides an unmodifiable collection, so modification operations are unsupported.
 
 So I don't assume every List or Collection supports every modification method; the actual implementation determines which operations are supported.
@@ -1884,7 +1884,7 @@ Reason → Collection implementation decides which optional operations it suppor
 Runtime exception → Compiler allows the method call; actual collection rejects it.
 ```
 
-# What is difference between fail-safe and fail-fast iterators?
+#### What is difference between fail-safe and fail-fast iterators?
 A fail-fast iterator detects structural modification during iteration and typically throws ConcurrentModificationException, as we commonly see with collections like ArrayList. This helps detect unsafe modification during traversal, although the behavior is best-effort.
 
 The term fail-safe is commonly used for iterators that can continue even when the underlying collection is modified concurrently, but technically Java uses more precise terms depending on the collection. For example, CopyOnWriteArrayList provides snapshot-style iteration, while ConcurrentHashMap provides weakly consistent iterators. These are designed for concurrent access rather than throwing ConcurrentModificationException for every concurrent modification.
@@ -1899,7 +1899,7 @@ Iterator.remove() → Safe way to remove during iteration when supported.
 Thread-safe ≠ fail-safe → They are different concepts.
 ```
 
-# What are atomic operations in Java?
+#### What are atomic operations in Java?
 An atomic operation is an operation that is performed as one indivisible unit, so another thread cannot observe it in a partially completed state. Atomic operations are important when multiple threads access shared data.
 
 For example, count++ is not atomic because it involves reading, modifying, and writing the value separately. If multiple threads execute it at the same time, updates can be lost. Java provides atomic classes such as AtomicInteger, AtomicLong, and AtomicReference, which provide operations like incrementAndGet() and compareAndSet() for thread-safe updates without requiring a traditional synchronized block for each operation.
@@ -1915,7 +1915,7 @@ Atomic classes → Commonly use CAS internally.
 Use atomic operations → When multiple threads update shared state.
 ```
 
-# What is BlockingQueue in Java?
+#### What is BlockingQueue in Java?
 BlockingQueue is a thread-safe queue designed mainly for communication between producer and consumer threads. Its main feature is that operations can wait when the queue cannot immediately perform them. For example, take() waits when the queue is empty, and put() waits when a bounded queue is full.
 
 It's commonly used in producer-consumer scenarios because it handles the waiting and thread coordination for us instead of requiring us to manually manage wait() and notify(). Common implementations include ArrayBlockingQueue, LinkedBlockingQueue, and PriorityBlockingQueue.
@@ -1962,7 +1962,7 @@ Producer continues with Task 3
 
 ### Generics
 
-# What are Generics?
+#### What are Generics?
 Generics allow us to write reusable and type-safe code that can work with different data types. The type is specified when we use the class, interface, or method, and the compiler checks that type for us.
 
 For example, List<String> means the list is intended to contain only String objects, so if I try to add an Integer, I get a compile-time error. Generics are heavily used in the Collections Framework, but they can also be used with our own classes and methods to avoid duplicate code and reduce unnecessary type casting.
@@ -1980,7 +1980,7 @@ Raw type → Collection used without generic type, e.g. List list.
 ```
 
 
-# Why do we need Generics? Can you give an example of how Generics make a program more flexible?
+#### Why do we need Generics? Can you give an example of how Generics make a program more flexible?
 We need Generics mainly to make our code type-safe and reusable. Instead of writing separate classes or methods for different data types, we can write one generic implementation and specify the type when we use it.
 
 For example, instead of creating separate StringBox, IntegerBox, and DoubleBox classes, I can create one Box<T> class. Then I can use Box<String>, Box<Integer>, or Box<Double> without changing the class itself. The compiler also checks the type for me, so I get errors at compile time instead of dealing with incorrect types at runtime.
@@ -1999,7 +1999,7 @@ Generic method → <T> T method(...).
 Primitives → Can't be used directly; use wrappers like Integer.
 ```
 
-# How do you declare a generic class?
+#### How do you declare a generic class?
 To declare a generic class, we add one or more type parameters inside angle brackets after the class name. These type parameters act as placeholders for the actual types that will be provided when the class is used.
 
 For example, class Box<T> declares a generic class where T can represent different types. I can then create Box<String> or Box<Integer> without creating separate classes for each type. This gives us code reuse while keeping type safety at compile time.
@@ -2013,7 +2013,7 @@ K → Key, V → Value, T → Type, E → Element (common conventions).
 Benefit → Code reuse + compile-time type safety.
 ```
 
-# What are the restrictions in using generic type that is declared in a class declaration?
+#### What are the restrictions in using generic type that is declared in a class declaration?
 When a generic type like T is declared at the class level, there are some restrictions. We cannot instantiate T directly using new T(), create a generic array like new T[], use the class-level T in static fields or static context, or use T with instanceof or as an exception type. Also, generic type arguments must be reference types, so primitives like int cannot be used directly; we use wrapper types like Integer. Most of these restrictions exist because Java implements generics using type erasure.
 ```
 new T()           → ❌ Cannot instantiate type parameter
@@ -2025,7 +2025,7 @@ Box<int>          → ❌ Primitives not allowed
 Box<Integer>      → ✅ Use wrapper classes
 ```
 
-# How can we restrict Generics to a subclass of particular class?
+#### How can we restrict Generics to a subclass of particular class?
 We can restrict a generic type using a bounded type parameter with the extends keyword. For example, class Box<T extends Animal> means that T can be Animal or any subclass of Animal. This gives us type safety while also allowing the generic code to use the methods available in the bound type. For example, because T extends Animal, I can safely call eat() on a T object.
 
 ```
@@ -2061,7 +2061,7 @@ Interface bound → T extends Comparable<T>
 Multiple bounds → T extends Animal & Serializable
 ```
 
-# How can we restrict Generics to a super class of particular class?
+#### How can we restrict Generics to a super class of particular class?
 We use a **lower-bounded wildcard with `super`** when we want to restrict a generic type to a particular class or any of its superclasses. For example, `List<? super Integer>` allows `List<Integer>`, `List<Number>`, and `List<Object>`, but not `List<Double>`. This is mainly useful when the generic code needs to **consume or add values of a specific type safely**. In contrast, `extends` is used when we want a type that is a subclass of a given type.
 ```
 super → lower-bounded wildcard
@@ -2072,7 +2072,7 @@ super → lower bound
 PECS → Producer Extends, Consumer Super
 ```
 
-# Can you give an example of a generic method?  
+#### Can you give an example of a generic method?  
 A generic method is a method that declares its own type parameter, so the method can work with different types while maintaining compile-time type safety. The type parameter is declared before the return type, for example, `public static <T> T getFirst(T[] array)`. When the method is called, Java can usually infer the actual type from the arguments. This makes the method reusable without needing separate versions for different data types.
 ```
 Generic method → Method with its own type parameter
@@ -2082,4 +2082,587 @@ T can represent different types
 Java often infers T automatically from arguments
 Generic class and generic method are independent concepts
 ```
+
+### Functional Programming
+
+####  What is functional programming?
+Functional programming is a programming style where we focus on processing data using functions rather than writing every step manually. Java introduced important functional programming features in Java 8, such as lambda expressions, functional interfaces, and the Stream API.
+
+For example, if I want to filter even numbers from a list, I can use `filter()` with a lambda expression instead of writing a traditional loop. Functional programming can make data-processing code more readable and easier to compose. Concepts like pure functions and immutability also help make code more predictable. Java supports this style, although it is still a multi-paradigm language and is widely used for object-oriented programming too.
+```
+Functional Programming: A programming style that focuses on composing operations using functions.
+Java 8: Introduced key functional programming features.
+Lambda: Concise way to represent behavior.
+Functional Interface: Interface with exactly one abstract method.
+Stream API: Processes data using operations like filter(), map(), and sorted().
+Pure Function: Same input produces the same output without side effects.
+Immutability: Avoiding changes to existing data or objects.
+Java: Supports both OOP and functional programming; it is not purely functional.
+```
+Let's understand with an example.
+
+Traditional approach (imperative style):
+
+Suppose we want to find all even numbers from a list.
+```
+List<Integer> numbers = Arrays.asList(1, 2, 3, 4, 5, 6);
+
+for (Integer number : numbers) {
+    if (number % 2 == 0) {
+        System.out.println(number);
+    }
+}
+```
+Here, we explicitly write the steps: loop through the list, check each number, and print the even numbers.
+
+Functional approach:
+```
+List<Integer> numbers = Arrays.asList(1, 2, 3, 4, 5, 6);
+
+numbers.stream()
+       .filter(number -> number % 2 == 0)
+       .forEach(System.out::println);
+```
+
+#### What is a stream?
+A Stream in Java is a way to process data from a source, such as a collection or an array, using operations like filtering, mapping, and sorting. It was introduced in Java 8 and is commonly used with lambda expressions.
+
+For example, if I need to find even numbers from a list, I can use `filter()` instead of writing a loop manually. Stream operations are usually written as a pipeline, where intermediate operations like `filter()` and `map()` are followed by a terminal operation like `collect()` or `forEach()`. Intermediate operations are lazy, meaning they don't process the elements until a terminal operation triggers the pipeline.
+
+A Stream doesn't store the data itself, doesn't normally modify its source, and cannot be reused after a terminal operation. It can also process data sequentially or in parallel when appropriate.
+
+
+**A. Intermediate Operations**
+
+These operations transform a stream and return another stream. They are generally lazy, meaning processing doesn't start until a terminal operation is called.
+
+| Method       | Purpose                                  | Example                         |
+| ------------ | ---------------------------------------- | ------------------------------- |
+| `filter()`   | Select elements that satisfy a condition | Keep even numbers               |
+| `map()`      | Transform each element                   | Convert names to uppercase      |
+| `sorted()`   | Sort elements                            | Sort numbers in ascending order |
+| `distinct()` | Remove duplicates                        | Keep unique numbers             |
+| `limit()`    | Keep only a specified number of elements | Get the first three elements    |
+
+
+**B. Terminal Operations**
+
+These operations finish a stream pipeline by producing a result or performing an action.
+
+| Method        | Purpose                                                |
+| ------------- | ------------------------------------------------------ |
+| `collect()`   | Collect results into a list, set, or another container |
+| `forEach()`   | Perform an action for each element                     |
+| `count()`     | Count the elements                                     |
+| `reduce()`    | Combine elements into a single result                  |
+| `findFirst()` | Retrieve the first element, if present                 |
+| `anyMatch()`  | Check whether any element satisfies a condition        |
+
+```
+Stream: Processes data from a source using operations such as filtering and mapping.
+Introduced: Java 8.
+Source: Collection, array, or another supported data source.
+Intermediate operations: Return another stream; usually lazy.
+Terminal operations: Produce a result or perform an action.
+Lazy evaluation: Processing starts when a terminal operation triggers the pipeline.
+Stream does not store data itself.
+Stream operations do not normally modify the source.
+A stream cannot be reused after a terminal operation.
+Sequential streams: Process without requesting parallel execution.
+Parallel streams: Can process elements concurrently using multiple threads.
+```
+Example:
+```
+numbers.stream()
+       .filter(n -> n > 3)
+       .map(n -> n * 10)
+       .collect(Collectors.toList());
+```
+
+#### What are intermediate operations in streams?
+Intermediate operations are operations that transform or filter a stream and return another stream, allowing us to chain multiple operations together. Common examples are `filter()`, `map()`, `sorted()`, and `distinct()`. For example, I can use `filter()` to select specific elements and then `map()` to transform them.
+
+An important point is that intermediate operations are lazy. They don't start processing elements until a terminal operation, such as `collect()` or `forEach()`, triggers the pipeline. This allows the Stream API to optimize how elements are processed.
+
+
+| Operation    | Purpose                                                                     | Example                     |
+| ------------ | --------------------------------------------------------------------------- | --------------------------- |
+| `filter()`   | Keeps elements that satisfy a condition                                     | `filter(n -> n > 5)`        |
+| `map()`      | Transforms each element                                                     | `map(n -> n * 2)`           |
+| `sorted()`   | Sorts the elements                                                          | `sorted()`                  |
+| `distinct()` | Removes duplicates                                                          | `distinct()`                |
+| `limit()`    | Keeps at most the first `n` elements                                        | `limit(3)`                  |
+| `skip()`     | Skips the first `n` elements                                                | `skip(2)`                   |
+| `flatMap()`  | Transforms each element into a stream and flattens the results              | `flatMap(List::stream)`     |
+| `peek()`     | Performs an action on elements as they pass through, commonly for debugging | `peek(System.out::println)` |
+
+
+#### What are terminal operations in streams?
+Terminal operations are operations that finish a Stream pipeline by producing a result or performing an action. Common examples are `collect()`, `forEach()`, `count()`, and `reduce()`. For example, I can use `filter()` to select even numbers and then `collect()` to store them in a new list.
+
+Terminal operations trigger the execution of intermediate operations, which are normally lazy. Once a terminal operation has consumed a stream, that stream cannot be reused, so I need to create a new stream for another operation.
+
+| Operation         | Purpose                                                         | Example                                 |
+| ----------------- | --------------------------------------------------------------- | --------------------------------------- |
+| `forEach()`       | Performs an action for each element                             | `stream.forEach(System.out::println)`   |
+| `collect()`       | Collects elements into a collection or another result container | `stream.collect(Collectors.toList())`   |
+| `count()`         | Returns the number of elements                                  | `stream.count()`                        |
+| `reduce()`        | Combines elements into a single result                          | `stream.reduce(0, Integer::sum)`        |
+| `findFirst()`     | Returns the first element, if present                           | `stream.findFirst()`                    |
+| `anyMatch()`      | Checks whether at least one element matches a condition         | `stream.anyMatch(n -> n > 5)`           |
+| `allMatch()`      | Checks whether every element matches a condition                | `stream.allMatch(n -> n > 0)`           |
+| `noneMatch()`     | Checks whether no elements match a condition                    | `stream.noneMatch(n -> n < 0)`          |
+| `min()` / `max()` | Finds the minimum or maximum element                            | `stream.max(Comparator.naturalOrder())` |
+
+#### What are method references?
+A method reference is a shorthand for a lambda expression when the lambda simply calls an existing method. We use the `::` operator to refer to that method.
+
+For example, instead of writing `name -> System.out.println(name)`, I can write `System.out::println`. Both work with the functional interface expected by `forEach()`. Java supports references to static methods, instance methods, and constructors. Method references make code shorter and more readable, especially when working with the Stream API and functional interfaces.
+
+| Type                                                            | Syntax                      | Example               |
+| --------------------------------------------------------------- | --------------------------- | --------------------- |
+| **Static method**                                               | `ClassName::staticMethod`   | `Integer::parseInt`   |
+| **Instance method of a particular object**                      | `object::instanceMethod`    | `System.out::println` |
+| **Instance method of an arbitrary object of a particular type** | `ClassName::instanceMethod` | `String::toUpperCase` |
+| **Constructor reference**                                       | `ClassName::new`            | `ArrayList::new`      |
+
+
+#### What are lambda expressions?
+A lambda expression is a concise way to implement a functional interface without writing a full anonymous class. It was introduced in Java 8 and uses the `->` operator to separate parameters from the implementation.
+
+For example, instead of creating an anonymous class to implement a `Runnable`, I can write `() -> System.out.println("Hello")`. Java determines the expected type from the context, so the lambda can be used wherever a compatible functional interface is expected. I commonly use lambdas with the Stream API for operations like filtering, mapping, and sorting collections. They reduce boilerplate code and make the intention of the code easier to understand.
+```
+Lambda Expression: Concise implementation of a functional interface.
+Introduced: Java 8.
+Operator: -> separates parameters from the implementation.
+Syntax: (parameters) -> expression
+Functional Interface: Must have exactly one abstract method.
+Target Type: The expected functional interface determines the lambda's type.
+Benefits: Less boilerplate, more readable code, useful with Streams.
+Single Expression: Can return a value implicitly.
+Multiple Statements: Use {} and return explicitly when required.
+Common Uses: Runnable, Comparator, Predicate, Consumer, Function, Stream API.
+```
+
+#### Can you explain the relationship between lambda expression and functional interfaces?
+A functional interface and a lambda expression work together. A functional interface has exactly one abstract method, and a lambda expression provides the implementation for that method.
+
+For example, if I have a `Calculator` interface with an `add(int a, int b)` method, I can implement it using `(a, b) -> a + b`. Java understands the parameter types and return type from the functional interface, so I don't need to specify them explicitly in the lambda.
+
+The main benefit is that I can provide different implementations of the same interface without writing separate classes or anonymous classes. This reduces boilerplate code and is especially useful when working with the Stream API and other functional programming features in Java.
+
+
+#### What is a predicate?
+`Predicate<T>` is a functional interface from the `java.util.function` package that takes one input and returns a boolean based on a condition. Its abstract method is `test()`. For example, `Predicate<Integer> isEven = number -> number % 2 == 0` checks whether a number is even. I can call `isEven.test(10)` to get `true`, or pass the predicate to a Stream's `filter()` method to select matching elements from a collection. Predicates are useful when I want to define and reuse conditions without writing separate methods for each check.
+
+**Important Predicate Methods**
+| Method      | Purpose                                                          | Example                     |
+| ----------- | ---------------------------------------------------------------- | --------------------------- |
+| `test()`    | Tests a condition                                                | `isEven.test(10)`           |
+| `and()`     | Combines two predicates; both must be true                       | `isEven.and(isPositive)`    |
+| `or()`      | Combines two predicates; at least one must be true               | `isEven.or(isPositive)`     |
+| `negate()`  | Reverses the predicate's result                                  | `isEven.negate()`           |
+| `isEqual()` | Creates a predicate that checks equality with a specified target | `Predicate.isEqual("Java")` |
+```
+Predicate<T>: Functional interface that tests a condition and returns boolean.
+Package: java.util.function
+Abstract method: boolean test(T t)
+Input: One argument.
+Output: true or false.
+Common use: Filtering elements with Stream.filter().
+and(): Both conditions must be true.
+or(): At least one condition must be true.
+negate(): Reverses the result.
+Introduced: Java 8.
+```
+| Functional interface | Purpose                            | Main method |
+| -------------------- | ---------------------------------- | ----------- |
+| `Predicate<T>`       | Checks a condition                 | `test()`    |
+| `Consumer<T>`        | Performs an action                 | `accept()`  |
+| `Function<T, R>`     | Transforms an input into a result  | `apply()`   |
+| `Supplier<T>`        | Supplies a result without an input | `get()`     |
+
+
+#### What is the functional interface - function?
+`Function<T, R>` is a functional interface from the `java.util.function` package that takes an input of type `T` and returns a result of type `R`. Its main abstract method is `apply()`. For example, `Function<String, Integer> getLength = name -> name.length()` takes a string and returns its length.
+
+I commonly use `Function` when I need to transform one value into another, especially with the Stream API's `map()` operation. It helps separate the transformation logic from the code that uses it, making the code reusable and easier to read.
+
+**Important Methods of Function**
+| Method       | Purpose                                                                   |
+| ------------ | ------------------------------------------------------------------------- |
+| `apply()`    | Applies the function to an input and returns the result.                  |
+| `andThen()`  | Applies this function first, then applies another function to its result. |
+| `compose()`  | Applies another function first, then applies this function to its result. |
+| `identity()` | Returns a function that returns its input unchanged.                      |
+```
+Function<T, R>: Functional interface that takes input T and returns result R.
+Package: java.util.function
+Main abstract method: R apply(T t)
+T: Input type.
+R: Return type.
+Example: Function<String, Integer> f = s -> s.length().
+andThen(): Applies another function after this function.
+compose(): Applies another function before this function.
+identity(): Returns a function that returns its input unchanged.
+Common use: Transforming data, especially with Stream.map().
+Introduced: Java 8.
+```
+#### What is a consumer?
+`Consumer<T>` is a functional interface from the `java.util.function` package that accepts one input and performs an operation without returning a result. Its main abstract method is `accept()`. For example, `Consumer<String> printName = name -> System.out.println(name)` accepts a string and prints it.
+
+I commonly use `Consumer` with the Stream API's `forEach()` method when I need to perform an action on each element in a collection. Unlike `Function`, which returns a result, `Consumer` returns nothing. It is useful for operations such as logging, printing, or updating an object's state.
+```
+Consumer<T>: Functional interface that accepts an input and returns no result.
+Package: java.util.function
+Main abstract method: void accept(T t)
+Input: One argument.
+Return type: void.
+Common use: Stream.forEach(), logging, printing, and updating state.
+andThen(): Chains another Consumer to execute after the first.
+Introduced: Java 8.
+```
+
+#### Can you give examples of functional interfaces with multiple arguments?
+Java provides built-in functional interfaces for working with multiple arguments. For example, `BiFunction<T, U, R>` accepts two arguments and returns a result, `BiPredicate<T, U>` accepts two arguments and returns a boolean, and `BiConsumer<T, U>` accepts two arguments and performs an action without returning a result.
+
+If I need a functional interface that accepts three or more arguments, I can define my own interface with a single abstract method and implement it using a lambda expression. For example, a `Calculator` interface with `calculate(int a, int b, int c)` can be implemented as `(a, b, c) -> a + b + c`. This gives me the flexibility to use lambdas with as many parameters as my application requires.
+
+| Functional interface  | Arguments | Return type | Main method |
+| --------------------- | --------: | ----------- | ----------- |
+| `Function<T, R>`      |         1 | `R`         | `apply()`   |
+| `BiFunction<T, U, R>` |         2 | `R`         | `apply()`   |
+| `Predicate<T>`        |         1 | `boolean`   | `test()`    |
+| `BiPredicate<T, U>`   |         2 | `boolean`   | `test()`    |
+| `Consumer<T>`         |         1 | `void`      | `accept()`  |
+| `BiConsumer<T, U>`    |         2 | `void`      | `accept()`  |
+| `Supplier<T>`         |         0 | `T`         | `get()`     |
+
+
+### Exception handling
+
+#### Why is exception handling important?
+Exception handling in Java is a mechanism for handling exceptional situations so that the application can respond properly instead of terminating unexpectedly. For example, if a program tries to divide a number by zero, Java throws an `ArithmeticException`.
+
+We can handle that situation using `try` and `catch`. The `try` block contains the code that might fail, and the `catch` block handles the matching exception. We can also use `finally` for cleanup operations, such as releasing resources. In real-world applications, exception handling helps us manage failures, return meaningful error responses, and make sure resources are cleaned up properly. However, I avoid catching exceptions without handling them appropriately because that can hide the actual problem.
+
+| Keyword   | Purpose                                                                                                          |
+| --------- | ---------------------------------------------------------------------------------------------------------------- |
+| `try`     | Contains code that might throw an exception.                                                                     |
+| `catch`   | Handles a matching exception thrown from the associated `try` block.                                             |
+| `finally` | Contains cleanup code that normally runs whether an exception occurs or not.                                     |
+| `throw`   | Explicitly throws an exception.                                                                                  |
+| `throws`  | Declares possible exceptions in a method signature, mainly to communicate or propagate exceptions to the caller. |
+```
+Exception Handling: Mechanism for responding to exceptional situations.
+try: Contains code that may throw an exception.
+catch: Handles a matching exception.
+finally: Cleanup block that normally executes whether an exception occurs or not.
+throw: Explicitly throws an exception.
+throws: Declares exceptions that a method may propagate to its caller.
+Checked Exception: Must be caught or declared under Java's exception rules.
+Unchecked Exception: RuntimeException and its subclasses; catching or declaring isn't mandatory.
+Error: Represents serious JVM/runtime problems.
+Purpose: Handle failures, provide meaningful responses, and clean up resources.
+Best Practice: Don't silently swallow exceptions; handle them appropriately.
+```
+
+#### What design pattern is used to implement exception handling features in most languages?
+The design pattern commonly associated with exception handling is the Chain of Responsibility pattern. When an exception occurs, it can propagate up the call stack until a matching exception handler is found. Each level gets an opportunity to handle the exception; if it isn't handled there, it continues to the caller. 
+
+For example, in Java, an exception thrown in a deeply nested method can be caught by a `try-catch` block in a method higher up the call stack. This resembles Chain of Responsibility, although exception handling is a built-in language feature rather than necessarily a direct implementation of that design pattern.
+
+**Example in Java**
+```
+public class Main {
+
+    static void method1() {
+        method2();
+    }
+
+    static void method2() {
+        method3();
+    }
+
+    static void method3() {
+        int result = 10 / 0;
+    }
+
+    public static void main(String[] args) {
+        try {
+            method1();
+        } catch (ArithmeticException e) {
+            System.out.println("Exception handled in main()");
+        }
+    }
+}
+```
+Output:
+
+Exception handled in main()
+
+*Here's what happens:*    
+method1() calls method2().     
+method2() calls method3().     
+method3() throws an ArithmeticException.       
+The exception propagates back through the calling methods until a matching catch block is found in main().
+The exception is handled there.
+
+This resembles Chain of Responsibility because the exception moves through successive levels until a handler takes responsibility for it.
+
+```
+Pattern: Chain of Responsibility.
+Concept: Exception propagates up the call stack until a matching handler is found.
+Java: Unhandled exceptions propagate to the calling method.
+If no handler is found: The exception is uncaught and the thread may terminate.
+Note: This is a conceptual association, not necessarily the internal implementation.
+```
+#### What is the need for finally block?
+The `finally` block is used to execute cleanup code whether an exception occurs or not. For example, if I'm working with a file or another resource, I may need to ensure that it gets closed even if an exception occurs while processing it.
+
+The `finally` block normally executes after the `try` and any matching `catch` block, including when the code returns from the method. However, it isn't guaranteed to execute if the JVM terminates abruptly. For resources that implement `AutoCloseable`, I generally prefer try-with-resources because it handles resource closure automatically.
+```
+finally: Used for cleanup code that should normally execute whether an exception occurs or not.
+Execution: Runs after try/catch, including before a return completes.
+Use cases: Resource cleanup and releasing resources.
+Uncaught exception: finally executes normally, then the exception propagates.
+Limitation: Not guaranteed if the JVM terminates abruptly.
+Best practice: Prefer try-with-resources for AutoCloseable resources.
+```
+
+#### In what scenarios is code in finally not executed?
+Although the `finally` block normally executes whether an exception occurs or not, there are some exceptions. For example, if `System.exit()` initiates JVM shutdown, `Runtime.getRuntime().halt()` terminates the JVM abruptly, or the JVM crashes, the `finally` block may not execute. It also won't be reached if execution gets stuck indefinitely inside the `try` block, such as in an infinite loop. So, I don't treat `finally` as an absolute guarantee that cleanup code will always run.
+
+
+#### Is try without a catch is allowed?
+Yes, a `try` block can exist without a `catch` block in Java, but a regular `try` statement must have a `finally` block if there is no `catch`. We can also use try-with-resources without `catch` or `finally`, because Java automatically closes the declared resources.
+
+For example, if I use `try-finally` and an exception occurs, the `finally` block normally executes, but the exception still propagates because it hasn't been caught. So, `finally` is used for cleanup, not for handling the exception.
+
+#### Is try without catch and finally allowed?
+A normal `try` block cannot exist without either a `catch` or a `finally` block. However, Java allows a try-with-resources statement without `catch` or `finally`. In try-with-resources, Java automatically closes resources that implement `AutoCloseable`, even when an exception occurs. Any exception that isn't handled can propagate to the caller, so we may need to catch it or declare it using `throws`, depending on the exception type.
+```
+Normal try without catch/finally → ❌ Not allowed.
+Try-with-resources without catch/finally → ✅ Allowed.
+Try-with-resources → Automatically closes declared resources.
+Unhandled checked exception → Must be caught or declared with throws.
+```
+
+#### Can you explain about try with resources?
+Try-with-resources is a Java feature introduced in Java 7 that automatically closes resources when we finish using them. It is commonly used with files, database connections, and streams. The resource is declared inside the parentheses after `try`, and its class must implement `AutoCloseable` or a subinterface of it.
+
+For example, when reading a file, I can declare a `BufferedReader` inside the try-with-resources statement instead of closing it manually in a `finally` block. Java automatically calls its `close()` method when the block exits, even if an exception occurs. This makes the code cleaner and helps prevent resource leaks.
+```
+Try-with-resources:
+- Introduced in Java 7.
+- Automatically closes resources after use.
+- Resource must implement AutoCloseable or its subinterface.
+- Resource is declared inside the parentheses after try.
+- Closes resources even when an exception occurs.
+- Multiple resources are closed in reverse declaration order.
+- Can be used without catch or finally.
+- Exceptions during closing may be recorded as suppressed exceptions.
+- Common uses: Files, streams, database connections.
+- Main benefit: Cleaner code and fewer resource leaks.
+```
+
+#### How does try with resources work?
+Try-with-resources works by automatically closing resources when execution leaves the `try` block. The resource must implement `AutoCloseable` or one of its subinterfaces, and we declare it inside the parentheses after `try`.
+
+For example, when reading a file, I can declare a `BufferedReader` inside the try-with-resources statement instead of closing it manually in a `finally` block. Java automatically calls its `close()` method, even if an exception occurs. Internally, the compiler generates the resource-cleanup logic, including handling exceptions that occur during closing. This makes resource management cleaner and helps prevent resource leaks.
+
+```
+Try-with-resources:
+- Introduced in Java 7.
+- Automatically closes resources when leaving the try block.
+- Resource must implement AutoCloseable or its subinterface.
+- Does not require a finally block just to close resources.
+- Closes resources even when an exception occurs.
+- Multiple resources close in reverse declaration order.
+- If both the body and close() throw, the close exception is suppressed.
+- Suppressed exceptions can be retrieved using getSuppressed().
+- The compiler generates resource-cleanup logic.
+- Main benefit: Cleaner code and fewer resource leaks.
+```
+
+#### Can you explain the hierarchy of exception handling classes?
+In Java, the exception hierarchy starts with the `Throwable` class, which has two main subclasses: `Error` and `Exception`.
+
+`Error` represents serious JVM or runtime problems, such as `OutOfMemoryError` and `StackOverflowError`. `Exception` represents conditions that an application may need to handle. Exceptions are further divided into checked and unchecked exceptions.
+
+Checked exceptions, such as `IOException` and `SQLException`, must be caught or declared using `throws`. Unchecked exceptions are subclasses of `RuntimeException`, such as `NullPointerException` and `ArithmeticException`, and the compiler doesn't require us to catch or declare them. Understanding this hierarchy helps me decide how to handle failures and when an exception should propagate to the calling method.
+```
+Throwable: Root class of Java's throwable hierarchy.
+Error: Serious JVM/runtime problems; unchecked.
+Exception: Represents conditions applications may need to handle.
+Checked Exceptions: Must be caught or declared with throws.
+Examples: IOException, SQLException, ClassNotFoundException.
+Unchecked Exceptions: RuntimeException and its subclasses.
+Examples: NullPointerException, ArithmeticException, IllegalArgumentException.
+Error and RuntimeException: Both unchecked.
+Catch a superclass: Can catch exceptions belonging to its subclasses.
+Best Practice: Catch exceptions you can meaningfully handle.
+```
+
+#### What is the difference between error and exception?
+In Java, both `Error` and `Exception` extend the `Throwable` class, but they represent different types of problems. An `Error` usually indicates a serious JVM or runtime problem, such as `OutOfMemoryError` or `StackOverflowError`, and application code generally shouldn't try to recover from it. An `Exception`, on the other hand, represents a condition that the application may be able to handle, such as an `IOException` when reading a file or an `ArithmeticException` when dividing by zero.
+
+Another important difference is that all `Error` subclasses are unchecked, whereas `Exception` includes both checked and unchecked exceptions. In practice, I handle exceptions when I can take meaningful action, but I generally avoid catching `Error` unless there is a specific reason.
+
+```
+Error: Usually a serious JVM/runtime problem; generally not handled by application code.
+Exception: A condition that application code may be able to handle.
+Hierarchy: Both Error and Exception extend Throwable.
+Error examples: OutOfMemoryError, StackOverflowError.
+Exception examples: IOException, SQLException, ArithmeticException.
+Error: Always unchecked.
+Exception: Can be checked or unchecked.
+Best practice: Handle exceptions meaningfully; don't catch Error indiscriminately.
+```
+
+#### What is the difference between checked exceptions and unchecked exceptions?
+The main difference between checked and unchecked exceptions is whether the compiler requires us to handle them or declare them using `throws`.
+
+Checked exceptions are checked by the compiler, so we must catch them or declare them. For example, `IOException` can occur during file operations. Unchecked exceptions are subclasses of `RuntimeException`, and the compiler doesn't require us to catch or declare them. Examples include `NullPointerException` and `ArithmeticException`.
+
+In practice, I handle checked exceptions when an operation can fail and the application needs a response. For unchecked exceptions, I also focus on preventing common problems through proper validation and correct coding rather than simply catching every exception.
+```
+Checked Exceptions:
+- Compiler requires catch or throws.
+- Examples: IOException, SQLException, ClassNotFoundException.
+- Often associated with operations that can fail due to external conditions.
+
+Unchecked Exceptions:
+- Compiler doesn't require catch or throws.
+- Subclasses of RuntimeException.
+- Examples: NullPointerException, ArithmeticException, IllegalArgumentException.
+- Often indicate invalid operations or programming mistakes.
+
+Key Difference:
+Checked → Compiler enforces handling or declaration.
+Unchecked → Handling or declaration is optional.
+```
+
+#### How do you throw an exception from a method?
+In Java, I use the `throw` keyword to explicitly throw an exception when a condition is not satisfied or an operation cannot proceed. For example, in a division method, I can check whether the denominator is zero and throw an `ArithmeticException` if it is. Once the exception is thrown, the method stops its normal execution, and the exception propagates to the caller until a matching handler is found or the exception remains unhandled.
+
+I also distinguish between `throw` and `throws`: `throw` actually throws an exception object, while `throws` declares exceptions that a method may propagate. For checked exceptions, I must either handle them or declare them in the method signature.
+```
+throw:
+- Used to explicitly throw an exception object.
+- Example: throw new IllegalArgumentException("Invalid input");
+- Stops normal execution of the current block and transfers control to exception handling.
+- Exception propagates to the caller if not caught.
+
+throws:
+- Declares exceptions a method may propagate.
+- Written in the method signature.
+- Example: void readFile() throws IOException
+
+Checked Exception: Must be caught or declared.
+Unchecked Exception: Catching or declaring is not mandatory.
+```
+
+#### What happens when you throw a checked exception from a method?
+When I throw a checked exception from a method, Java requires me to either handle it using `try-catch` or declare it using `throws` in the method signature. If I do neither, the code fails to compile.
+
+For example, if my method throws an `IOException`, I can declare `throws IOException` and let the calling method handle it. The caller must also catch the exception or declare it using `throws`. So, `throws` allows an exception to propagate up the call stack; it doesn't handle the exception itself.
+```
+Checked Exception:
+- Must be caught or declared using throws.
+- If neither is done, compilation fails.
+- throw → Actually throws an exception object.
+- throws → Declares an exception that may propagate to the caller.
+- The caller must also catch or declare the checked exception.
+- Declaring an exception does not handle it.
+```
+
+#### What are the options you have to eliminate compilation errors when handling checked exceptions?
+There are two main ways to resolve compilation errors caused by checked exceptions in Java.
+
+The first is to handle the exception using a `try-catch` block. I use this when the current method can handle the failure or take appropriate action.
+
+The second is to declare the exception using `throws` in the method signature, allowing it to propagate to the calling method. The caller must then catch it or declare it as well.
+
+I choose between these approaches based on where the exception can be handled most appropriately. If the current method can recover from the problem, I handle it there; otherwise, I may propagate it to a higher level that has enough context to handle it.
+```
+Checked Exception — Two main options:
+
+1. try-catch → Handle the exception in the current method.
+2. throws → Declare the exception and allow it to propagate to the caller.
+
+Important:
+- Unhandled checked exceptions cause compilation errors.
+- throws does not handle the exception.
+- The caller must catch or declare the exception.
+- Choose the handling location based on where the problem can be handled appropriately.
+```
+
+#### How do you create a custom exception?
+In Java, I create a custom exception by extending either the `Exception` class or the `RuntimeException` class. If I extend `Exception`, it becomes a checked exception, so the caller must catch it or declare it using `throws`. If I extend `RuntimeException`, it becomes an unchecked exception, and the compiler doesn't require it to be caught or declared.
+
+For example, in a banking application, I might create an `InsufficientBalanceException` and throw it when a withdrawal amount exceeds the available balance. I usually add a constructor that accepts an error message and passes it to the parent class using `super(message)`. This allows me to represent application-specific failures with meaningful exception types and messages.
+```
+Custom Exception: User-defined exception for application-specific errors.
+
+Checked Custom Exception:
+- Extend Exception.
+- Must be caught or declared using throws.
+
+Unchecked Custom Exception:
+- Extend RuntimeException.
+- Catching or declaring is not mandatory.
+
+super(message):
+- Passes the error message to the parent exception class.
+
+throw:
+- Throws the exception object.
+
+throws:
+- Declares exceptions that a method may propagate.
+
+Common Example:
+InsufficientBalanceException in a banking application.
+```
+
+#### How do you handle multiple exception types with same exception handling block?
+In Java, we can handle multiple exception types in the same `catch` block using multi-catch, which was introduced in Java 7. We use the pipe (`|`) operator to specify the exception types. For example, `catch (NumberFormatException | ArithmeticException e)` handles either exception using the same block.
+
+I use multi-catch when different exceptions require the same handling logic, because it avoids duplicating code. However, the exception types cannot have a parent-child relationship in a multi-catch statement. If different exceptions require different handling, I use separate `catch` blocks instead.
+
+
+#### Can you explain a few exception handling best practices?
+There are several best practices I follow when handling exceptions in Java.
+
+First, I prefer catching specific exceptions instead of catching a broad `Exception`, unless I'm at a boundary where I have a proper strategy for handling unexpected failures. Second, I never swallow exceptions because that hides problems and makes debugging difficult. I either handle the exception meaningfully or let it propagate to the appropriate calling layer.
+
+I also use try-with-resources for files and database-related resources so they are closed automatically. When wrapping an exception in a custom exception, I preserve the original cause to make debugging easier. I avoid using exceptions for normal program flow, provide meaningful error messages, and don't catch serious `Error` types indiscriminately.
+
+The main goal is to make failures easier to understand and handle without hiding the actual problem or leaving resources open.
+```
+Exception Handling Best Practices
+
+1. Catch specific exceptions whenever possible.
+2. Never swallow exceptions; handle them or propagate them.
+3. Use try-with-resources for AutoCloseable resources.
+4. Catch exceptions at the layer that can handle them meaningfully.
+5. Preserve the original cause when wrapping exceptions.
+6. Don't use exceptions for normal control flow.
+7. Provide meaningful exception messages.
+8. Never log sensitive information.
+9. Avoid catching Error or Throwable indiscriminately.
+10. Don't log and rethrow at every layer; avoid duplicate logs.
+11. Use custom exceptions for meaningful application-specific failures.
+12. Validate input where appropriate, but don't assume validation prevents every failure.
+```
+
+
+
+
+
+
+
+
+
 
