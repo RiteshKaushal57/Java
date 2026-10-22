@@ -21262,6 +21262,798 @@ Hence modern code limits its scope (blocks over methods, tiny critical sections,
 
 9. Explain how `synchronized` fixes both the lost-update problem *and* the visibility problem — and why it's heavier than `volatile`.
 
+## 52. Inter-Thread Communication — `wait()`, `notify()`, `notifyAll()` & Producer–Consumer
+
+
+
+### 1. The Production Scenario
+
+A Swiggy-style order pipeline: an **order-intake thread** pushes new orders into a slot, and a **dispatch thread** picks them up and assigns riders. Two failure modes:
+
+- Dispatch runs first → picks up **nothing** (null).
+- Intake runs twice in a row → the first order is **overwritten** before dispatch ever saw it (lost order).
+
+Locks alone can't prevent either — we need the threads to **wait for each other**.
+
+---
+
+### 2. The Producer–Consumer Problem
+
+```
+ Producer ──put──►  [ Box: item, flag ]  ──take──► Consumer
+```
+
+Rules we want:
+- Consumer must **not** consume when the box is **empty**.
+- Producer must **not** produce when the box is **full** (previous item not yet consumed).
+
+```java
+class Box {
+    private Integer item = null;        // the slot
+    private boolean flag = false;       // true = item present
+
+    void produce(int value) {
+        item = value;
+        flag = true;
+        System.out.println("Produced " + item);
+    }
+
+    void consume() {
+        System.out.println("Consumed " + item);
+        item = null;
+        flag = false;
+    }
+}
+```
+
+Driver: two threads, 20 iterations each, with different `Thread.sleep` (producer 100 ms, consumer 70 ms) to expose timing problems.
+
+Output (sample) shows exactly the bugs predicted:
+```
+Consumed null      ← consumer ran before anything was produced
+Produced 1  Consumed 1
+Produced 2  Consumed 2
+Consumed null      ← consumer faster than producer
+...                 (and sometimes: two produces in a row → value overwritten)
+```
+
+---
+
+### 3. Why `synchronized` Alone Doesn't Fix It
+
+```java
+synchronized void produce(int v) { ... }
+synchronized void consume()      { ... }   // same Box lock
+```
+`synchronized` ensures **only one of them is inside at a time** — it does **not** control **who goes first** or **how many times in a row**. The consumer can still enter first and read `null`; the producer can still produce twice.
+
+> The problem isn't *locking*; it's **coordination** — a thread needs to wait until a **condition** becomes true.
+
+Every inter-thread communication problem has three parts:
+
+| Part | In our example |
+|---|---|
+| **Shared resource** | the `Box` |
+| **Condition** | does the box currently hold an item? |
+| **Waiting rule** | consumer waits if empty; producer waits if full |
+
+---
+
+### 4. Attempt 1 — Busy Waiting (Naive, Wrong)
+
+```java
+// WRONG: spin until the condition changes
+void produce(int v) {
+    while (flag) { }            // spin: "is it still full?" "is it still full?" ...
+    item = v; flag = true;
+}
+void consume() {
+    while (!flag) { }           // spin: "is it still empty?" ...
+    item = null; flag = false;
+}
+```
+
+Problems:
+1. **Burns CPU** doing nothing useful — the CPU just sees a thread executing instructions. A consumer waiting 2 seconds for a slow producer (say an external service) spins for 2 seconds. This is **busy waiting**.
+2. **Visibility:** without `volatile`, the spinning thread may never see the other's update → needs `private volatile boolean flag`.
+3. **Still racy:** with `volatile` it mostly works, but check-then-act isn't atomic — output order can interleave oddly (e.g., "Consumed 1" printed before "Produced 1"), because context switches can occur between the flag update and the print.
+
+#### Adding `synchronized` to the spinning version → hang
+
+```java
+// WRONG: spinning while HOLDING the lock
+synchronized void consume() {
+    while (!flag) { }           // consumer holds the Box lock and spins forever
+    ...
+}
+```
+If the consumer enters first (box empty), it **holds the lock and spins**; the producer can never enter `produce()` (BLOCKED on the same lock) to fill the box → **the program hangs forever**. (Strictly this is a livelock/starvation-style hang rather than a textbook circular-wait deadlock, but the effect is the same: nothing progresses.)
+
+---
+
+### 5. The Right Tool — `wait()`, `notify()`, `notifyAll()`
+
+All three live in **`Object`** (not `Thread`) — because they operate on an **object's monitor**, which has both the lock and a **wait set** (the "waiting queue").
+
+```
+        object monitor
+   ┌───────────────────────────────┐
+   │ owner thread  : T? / none     │
+   │ entry set  (BLOCKED threads)  │  ← want the lock
+   │ wait set   (WAITING threads)  │  ← called wait(), released the lock
+   └───────────────────────────────┘
+```
+
+### `wait()` does three things
+
+1. **Releases the monitor lock(s) of that object.**
+2. Moves the thread to the **WAITING** state (in the object's wait set).
+3. Stays there **until another thread wakes it** (`notify`/`notifyAll`, or an interrupt).
+
+> **Releasing the lock is the key.** If `wait()` kept the lock, the producer could never enter to produce, and the consumer would wait forever.
+
+### `notify()`
+
+1. Picks **one arbitrary thread** from the object's wait set (which one is unspecified).
+2. That thread moves to **BLOCKED** — it must **re-acquire the lock** it gave up. (Not directly RUNNABLE.)
+3. Once it gets the lock it becomes RUNNABLE and **resumes right after its `wait()` call**, not from the start of the method.
+
+#### `notifyAll()`
+
+Wakes **every** thread in the wait set. All move to BLOCKED and compete for the lock; one wins, the others get it later (each re-checks its condition).
+
+#### Mandatory rule
+
+`wait()`, `notify()`, `notifyAll()` **must be called while holding the object's monitor** — inside a `synchronized` method/block on **that same object** — otherwise: **`IllegalMonitorStateException`**. (wait releases a lock — you can't release one you don't hold; notify manipulates the wait set under the lock.)
+
+`wait()` throws the checked `InterruptedException`.
+
+---
+
+### 6. The Correct Producer–Consumer
+
+```java
+class Box {
+    private Integer item = null;
+    private boolean flag = false;                 // true = full
+
+    synchronized void produce(int value) throws InterruptedException {
+        while (flag) {                            // full? wait
+            wait();
+        }
+        item = value;
+        flag = true;
+        System.out.println("Produced " + item);
+        notifyAll();                              // wake any waiting consumer(s)
+    }
+
+    synchronized void consume() throws InterruptedException {
+        while (!flag) {                           // empty? wait
+            wait();
+        }
+        System.out.println("Consumed " + item);
+        item = null;
+        flag = false;
+        notifyAll();                              // wake any waiting producer(s)
+    }
+}
+```
+
+Output is now strictly alternating — `Produced 1 / Consumed 1 / Produced 2 / Consumed 2 / …` — no `null` reads, no overwritten items, **no CPU burnt spinning**. (No `volatile` needed: all access is inside `synchronized`, which already guarantees visibility.)
+
+#### Walkthrough
+
+Start: box empty (`flag = false`). `Consumer` runs first.
+
+```
+1. Consumer enters consume()  → acquires lock
+2. flag == false              → wait(): releases lock, joins wait set  [WAITING]
+3. Producer enters produce()  → acquires lock (free now)
+4. flag == false              → skips loop, sets item=10, flag=true, prints
+5. Producer calls notifyAll() → Consumer leaves wait set → BLOCKED (needs the lock)
+6. Producer exits produce()   → releases lock
+7. Consumer gets the lock     → BLOCKED → RUNNABLE → resumes right after wait()
+8. loop re-checks: flag == true → exits loop, consumes, flag=false, notifyAll()
+```
+
+The same two methods also handle a **producer arriving first** (it just produces) and a **producer running twice** (second call sees `flag == true` and waits until the consumer consumes).
+
+---
+
+#### 7. `notify()` vs. `notifyAll()` — When `notify()` Bites
+
+With **one** producer and **one** consumer, `notify()` always wakes the only possible waiter. With **multiple** producers and consumers, `notify()` can wake the **wrong kind** of thread:
+
+State: box empty; consumers `C1`, `C2` and producer `P2` are all about to interact.
+
+```
+1. C1 enters, box empty → waits.      wait set: [C1]
+2. C2 enters, box empty → waits.      wait set: [C1, C2]
+3. P1 produces 10, notify()           → wakes C1 (arbitrary). wait set: [C2]
+4. Now C1 and P2 both want the lock. P2 wins: box full → P2 waits.  wait set: [C2, P2]
+5. C1 gets the lock, consumes, calls notify() → picks C2 (arbitrary!) instead of P2
+6. C2 wakes, sees the box EMPTY → waits again.  wait set: [P2, C2]
+7. Everyone is waiting; nobody left to notify.   ⇒ stuck forever
+```
+(A "lost wake-up" — the signal went to a thread that couldn't use it.)
+
+**Fix: `notifyAll()`.** In step 5 it wakes both `C2` and `P2`; `C2` re-checks and goes back to wait, `P2` finds the box empty and produces. Progress is guaranteed.
+
+| | `notify()` | `notifyAll()` |
+|---|---|---|
+| Wakes | one arbitrary waiter | all waiters |
+| Overhead | lower | higher (thundering herd) |
+| Safe when | **exactly one** kind of waiter and any waiter can proceed | **default choice** with multiple producers/consumers or different conditions |
+
+> **Rule of thumb:** use `notifyAll()` unless you're certain a single `notify()` is enough.
+
+---
+
+### 8. Spurious Wakeups — Why It's `while`, Never `if`
+
+A waiting thread can occasionally **wake up without anyone calling `notify`** — a **spurious wakeup** (rare; a consequence of how the OS/JVM implements waiting).
+
+```java
+// WRONG: if
+if (!flag) { wait(); }
+// after a spurious wakeup the thread falls through and reads null / stale state
+
+// RIGHT: while  (a "guarded block")
+while (!flag) { wait(); }
+// after any wakeup, the condition is re-checked; if still false, wait again
+```
+
+Two reasons for `while`:
+1. **Spurious wakeups** — recheck the condition after every wakeup.
+2. **Competing threads** — even after a *real* `notify`, another thread may have grabbed the lock first and changed the state again before you re-acquired it; you must re-verify the condition.
+
+This `while (!condition) wait();` shape is called a **guarded block**. Always use it.
+
+---
+
+### 9. `sleep()` vs. `wait()`
+
+| | `Thread.sleep(ms)` | `Object.wait()` |
+|---|---|---|
+| Defined in | `Thread` (static) | `Object` (instance) |
+| Releases the lock? | **No** — keeps any locks | **Yes** — releases that object's monitor |
+| Needs to hold a monitor? | No | **Yes** (`synchronized`), else `IllegalMonitorStateException` |
+| Thread state | `TIMED_WAITING` | `WAITING` (or `TIMED_WAITING` for `wait(ms)`) |
+| Woken by | time elapsing (or interrupt) | `notify` / `notifyAll` (or interrupt, or spuriously; or timeout for `wait(ms)`) |
+| Purpose | pause for a duration | wait for a **condition** / signal from another thread |
+
+#### Why are `wait/notify` in `Object`?
+
+Because they work on a **monitor**, and every object has one (lock + wait set). The thread isn't the thing being waited on — the **object's lock/condition** is. A thread "waits on `box`" and is woken by a thread that "notifies `box`."
+
+---
+
+### 10. In Practice
+
+- The same pattern underlies a **printer spooler** (document creator = producer, printer = consumer), **log writers**, **message queues**, **thread-pool work queues**.
+- In real code, prefer higher-level tools instead of hand-written `wait/notify`: **`BlockingQueue`** (`ArrayBlockingQueue`, `LinkedBlockingQueue`) implements exactly this producer–consumer coordination, and `Lock` + `Condition` offers finer control. Knowing `wait/notify` matters for understanding them and for interviews.
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** Why can't `synchronized` alone solve producer–consumer?
+
+*Answer:* It enforces mutual exclusion, not ordering/conditions. The consumer can still enter first and read nothing, or the producer can overwrite an unconsumed item.
+
+> **Q2.** What are the problems with busy waiting?
+
+*Answer:* It wastes CPU, needs `volatile` for visibility, and if done while holding a lock it can hang the program because the other thread can never enter.
+
+> **Q3.** What exactly does `wait()` do?
+
+*Answer:* It releases the object's monitor, moves the thread to WAITING, and keeps it there until another thread notifies it (or it's interrupted).
+
+> **Q4.** After `notify()`, which state does the woken thread enter first, and why?
+
+*Answer:* BLOCKED — it released the lock when it called `wait()`, so it must re-acquire it before resuming.
+
+> **Q5.** What happens if you call `wait()` outside a `synchronized` block?
+
+*Answer:* `IllegalMonitorStateException` — you must hold the object's monitor to wait/notify on it.
+
+> **Q6.** Why `while (!flag) wait();` and not `if`?
+
+*Answer:* To recheck the condition after any wakeup — spurious wakeups and competing threads can make the condition false again.
+
+> **Q7.** Why is `notifyAll()` safer than `notify()` with multiple producers and consumers?
+
+*Answer:* `notify()` may wake a thread that can't make progress (e.g., another consumer when the box is empty) and leave the one that could progress asleep, causing everyone to wait forever. `notifyAll()` wakes all so the right one proceeds.
+
+> **Q8.** Why are `wait`, `notify`, `notifyAll` in `Object`?
+
+*Answer:* They operate on an object's monitor (lock and wait set), which every object has.
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] **Locks provide mutual exclusion; `wait/notify` provide coordination** on a condition.
+- [ ] Every coordination problem = **shared resource + condition + waiting rule**.
+- [ ] **Never busy-wait** (`while (cond) {}`) — it burns CPU, and spinning while holding a lock can hang the program.
+- [ ] `wait()` **releases the monitor**, enters **WAITING**, and resumes after the `wait()` call when notified and the lock is re-acquired.
+- [ ] A notified thread goes **WAITING → BLOCKED → RUNNABLE** (it must win the lock first).
+- [ ] `wait/notify/notifyAll` **must be called inside `synchronized` on the same object**, or you get `IllegalMonitorStateException`.
+- [ ] Always wait in a **`while` loop** (guarded block), **never `if`** — spurious wakeups and competing threads.
+- [ ] `notify()` wakes one **arbitrary** waiter; use it only with a single kind of waiter. Otherwise default to **`notifyAll()`**.
+- [ ] Call `notify/notifyAll` **after changing the state** the waiters depend on.
+- [ ] `sleep()` keeps locks and is timed; `wait()` releases the lock and waits for a signal.
+- [ ] `wait/notify/notifyAll` live in **`Object`** because the monitor/wait set belongs to the object.
+- [ ] Prefer **`BlockingQueue`** / `Condition` in production; know `wait/notify` as the foundation.
+
+---
+
+#### Practice Questions
+
+**Basic**
+
+1. List the shared resource, condition and waiting rule for a producer–consumer with a one-slot buffer.
+
+2. Which class defines `wait()`, and why not `Thread`?
+
+3. What exception do you get from `wait()` outside `synchronized`?
+
+**Intermediate**
+
+4. Rewrite a busy-waiting `consume()` using `wait()`/`notifyAll()`.
+
+5. Trace: consumer starts first on an empty box, producer then runs. List thread states of the consumer at each step.
+
+6. Why does a `synchronized` busy-wait in `consume()` hang the program when the consumer runs first?
+
+**Advanced / Interview-style**
+
+7. With 2 producers and 2 consumers, construct a sequence where `notify()` leads to everyone waiting forever. Show how `notifyAll()` avoids it.
+
+8. Explain two independent reasons the wait condition must be in a `while` loop.
+
+9. Compare `sleep()` and `wait()` on lock release, state, wake-up trigger and required context. When would using `sleep()` inside a synchronized block be a design smell?
+
+10. How would `ArrayBlockingQueue` replace the hand-written `Box`? What does it hide from you?
+
+## 53. Alternative Locking Techniques — `Lock`, `ReentrantLock`, `ReadWriteLock`, `StampedLock`, `Semaphore`, `Condition`
+
+
+
+### 1. The Production Scenario
+
+A Zomato-style restaurant menu cache: thousands of requests **read** the menu every second; a few admin updates **write** it. With `synchronized`, readers queue behind each other even though reading is harmless. Separately, a payment gateway wants to cap **concurrent calls to a downstream bank API at 5**. And a checkout thread wants to **try** for a lock and fall back to a queue instead of freezing. `synchronized` can't do any of these — hence the alternatives.
+
+---
+
+### 2. Limitations of `synchronized`
+
+| Limitation | Meaning |
+|---|---|
+| **No control over acquisition** | A thread that can't get the lock just goes BLOCKED. You can't say "if unavailable, do something else" |
+| **No timeout** | Can't say "wait at most 2 seconds for the lock" |
+| **No fairness** | No guarantee that the longest-waiting thread gets the lock → possible **starvation** |
+| **Implicit lock/unlock** | Lock is tied to block scope; no manual control of acquire/release points |
+| **(Also)** not interruptible while waiting to acquire | A thread blocked on `synchronized` can't be cancelled via `interrupt()` |
+
+---
+
+### 3. The `Lock` Interface
+
+`java.util.concurrent.locks.Lock` is a contract: `lock()` and `unlock()` (plus optional methods like `tryLock()`). **Implementations:** `ReentrantLock`, and (via `ReadWriteLock`) `ReentrantReadWriteLock`. (`StampedLock` is a separate class with its own API; `Semaphore` isn't a lock.)
+
+Terminology note: a thread unable to get a lock is in **BLOCKED** state; people casually say it is "waiting for the lock." Only `wait()`/`await()` puts a thread into the **WAITING** state.
+
+---
+
+### 4. `ReentrantLock`
+
+#### The basic pattern
+
+```java
+class Resource {
+    private final Lock lock = new ReentrantLock();
+
+    void f1() {
+        lock.lock();                       // acquire BEFORE try
+        try {
+            // critical section
+        } finally {
+            lock.unlock();                 // always release in finally
+        }
+    }
+}
+```
+
+#### Wrong vs. right
+
+```java
+// WRONG: exception skips unlock → lock held forever → other threads stuck
+lock.lock();
+doWork();                // throws
+lock.unlock();
+
+// RIGHT: finally always runs
+lock.lock();
+try {
+    doWork();
+} finally {
+    lock.unlock();
+}
+```
+
+With `synchronized` the JVM releases for you; with `Lock` it's **your responsibility** — forgetting `unlock()` or skipping it on an exception hangs every other thread.
+
+Locking the object isn't locking the method either: the lock lives in the `ReentrantLock` object that all threads share — all threads must use **the same lock instance**.
+
+#### Why "re-entrant"
+
+The **same thread** can acquire the lock **multiple times**; it must **unlock the same number of times**.
+
+```java
+void a() {
+    lock.lock();
+    try { b(); } finally { lock.unlock(); }
+}
+void b() {
+    lock.lock();                           // same thread, re-acquires: hold count = 2
+    try { /* work */ } finally { lock.unlock(); }
+}
+```
+Without reentrancy, `a()` calling `b()` would deadlock on itself. (`synchronized` is reentrant too — so reentrancy isn't what makes `ReentrantLock` special; its **extra capabilities** are.)
+
+#### The real value: extra methods
+
+| Method | What it does |
+|---|---|
+| `lock()` | Acquire; block until available |
+| `unlock()` | Release (`IllegalMonitorStateException` if you don't hold it) |
+| **`tryLock()`** | Try to acquire **now**; returns `true`/`false`, never blocks |
+| **`tryLock(time, unit)`** | Wait **up to** the timeout; `true` if acquired (throws `InterruptedException`) |
+| `lockInterruptibly()` | Acquire, but respond to `interrupt()` while waiting |
+| `isLocked()` | Is it held by *any* thread? (monitoring/debugging only — stale the instant you read it) |
+| `isHeldByCurrentThread()` | Does the calling thread hold it? |
+| `getHoldCount()` | How many times the current thread holds it (reentrancy depth) |
+| `isFair()` | Is it a fair lock? |
+
+#### `tryLock` — do something else instead of blocking
+
+```java
+if (lock.tryLock()) {                      // got it
+    try {
+        // critical section
+    } finally {
+        lock.unlock();                     // only unlock if we acquired
+    }
+} else {
+    // fallback: skip, queue the work, log, retry later
+}
+```
+
+With a timeout:
+```java
+if (lock.tryLock(2, TimeUnit.SECONDS)) {   // wait up to 2 seconds
+    try { /* work */ } finally { lock.unlock(); }
+} else {
+    // gave up after 2 seconds
+}
+```
+
+#### Fairness
+
+```java
+Lock unfair = new ReentrantLock();         // default: unfair — any waiter may get it (higher throughput, starvation possible)
+Lock fair   = new ReentrantLock(true);     // fair — roughly longest-waiting thread first (FIFO-like)
+```
+Fair locks prevent starvation but are **slower**. The ordering is approximate; the plain `tryLock()` (no timeout) can still "barge in" past waiting threads.
+
+---
+
+### 5. `ReadWriteLock` / `ReentrantReadWriteLock`
+
+**Observation:** *reading* doesn't modify data → many readers can safely overlap; *writing* is destructive → writers must be alone.
+
+| Lock | Mode | Who may hold it simultaneously |
+|---|---|---|
+| **Read lock** | **Shared** | many readers (but no writer) |
+| **Write lock** | **Exclusive** | exactly one writer (no readers, no other writers) |
+
+```
+readers only :  R1 R2 R3   ✓ together
+writer alone :  W1         ✓
+reader+writer:  R1 + W1    ✗  (one must wait)
+two writers  :  W1 + W2    ✗
+```
+
+```java
+class SharedResource {
+    private int value = 0;
+    private final ReadWriteLock rw = new ReentrantReadWriteLock();   // (true) for fair
+    private final Lock readLock  = rw.readLock();
+    private final Lock writeLock = rw.writeLock();
+
+    int read() {
+        readLock.lock();
+        try { return value; }
+        finally { readLock.unlock(); }
+    }
+
+    void write(int newValue) {
+        writeLock.lock();
+        try { value = newValue; }
+        finally { writeLock.unlock(); }
+    }
+}
+```
+
+**Why a read lock at all?** So that while readers are inside, a **writer can't barge in** and change data mid-read. Readers share with each other; they exclude writers.
+
+This is the classic **readers–writers problem** (Google Docs-style: many viewers, few editors; caches; shared config; DB-like structures).
+
+### Writer starvation
+
+A steady stream of overlapping readers can keep the read lock continuously held so a writer waits indefinitely. Mitigate with a fair lock or by bounding reader counts/duration.
+
+#### Downgrading (allowed) vs. upgrading (not allowed)
+
+```java
+// DOWNGRADE: write → read  (allowed; acquire read BEFORE releasing write)
+writeLock.lock();
+try {
+    value = 100;                 // modify
+    readLock.lock();             // 1) take read lock first
+} finally {
+    writeLock.unlock();          // 2) then release write lock
+}
+try {
+    System.out.println(value);   // read what we just wrote, guaranteed consistent
+} finally {
+    readLock.unlock();
+}
+```
+Order matters: if you released the write lock first, another writer could sneak in between.
+
+**Upgrade (read → write) is not allowed** (it would deadlock): other readers may also hold the read lock, so a shared lock can't be turned into an exclusive one. Release the read lock first, then acquire the write lock (and re-check state).
+
+`ReentrantReadWriteLock` is reentrant (hold counts apply).
+
+---
+
+### 6. `StampedLock` — Optimistic Reading
+
+> A more modern read/write lock whose methods return a **stamp** (a `long` version token) and which adds **optimistic reads**.
+
+### Pessimistic vs. optimistic
+
+| | **Pessimistic** | **Optimistic** |
+|---|---|---|
+| Philosophy | "Someone might interfere — lock first." | "Interference is unlikely — read freely, then verify." |
+| Cost | Lock/unlock overhead every time | No lock acquired for the read; cheap |
+| Examples | `synchronized`, `ReentrantLock`, `ReadWriteLock`, `StampedLock.readLock()/writeLock()` | **`StampedLock.tryOptimisticRead()`**, CAS / `AtomicInteger` |
+
+### Pessimistic usage (stamps are tokens, like a parking ticket)
+
+```java
+StampedLock lock = new StampedLock();
+
+long stamp = lock.writeLock();            // exclusive
+try { value = 100; }
+finally { lock.unlockWrite(stamp); }      // must pass the stamp back
+
+long s = lock.readLock();                 // shared
+try { /* read */ }
+finally { lock.unlockRead(s); }
+```
+No thread "owns" a `StampedLock`; the **stamp** identifies the acquisition.
+
+### Optimistic read: read without locking, then validate
+
+```java
+int read() {
+    long stamp = lock.tryOptimisticRead();     // no lock taken; just a version stamp
+    int current = value;                       // 1) copy data into locals
+
+    if (!lock.validate(stamp)) {               // 2) did a writer intervene?
+        stamp = lock.readLock();               // fallback: pessimistic read
+        try {
+            current = value;
+        } finally {
+            lock.unlockRead(stamp);
+        }
+    }
+    return current;                            // 3) use the (valid) value
+}
+```
+
+Steps: **get stamp → read without locking → `validate(stamp)`**. `validate` returns `true` if no write happened since the stamp, `false` otherwise (then re-read under a real read lock). Copy fields to **locals before validating** and use only validated values.
+
+Great for **read-heavy** workloads where writes are rare — most reads never lock.
+
+#### `StampedLock` caveats
+
+- **Not reentrant** — locking again from the same thread **deadlocks**.
+- It does **not** implement `Lock`/`ReadWriteLock` and has **no `Condition` support**.
+- Other optimistic techniques you'll meet: **CAS** and **atomic classes** (`AtomicInteger`, …) — coming next.
+
+---
+
+### 7. `Semaphore` — Controlling *How Many* Threads Enter
+
+A semaphore holds a number of **permits**:
+
+```java
+Semaphore sem = new Semaphore(3);          // up to 3 threads at once  (counting semaphore)
+Semaphore bin = new Semaphore(1);          // binary: behaves like a lock — but not a real lock
+Semaphore fair = new Semaphore(3, true);   // fair ordering
+
+sem.acquire();                             // take a permit (blocks if none; throws InterruptedException)
+try {
+    // up to 3 threads here concurrently
+} finally {
+    sem.release();                         // give the permit back
+}
+```
+
+Mechanics: a permit count of 3 → 2 → 1 → 0; the next thread **blocks** until someone releases.
+
+#### Semaphore vs. Lock
+
+| | **Lock** | **Semaphore** |
+|---|---|---|
+| Concept | **Ownership**: the holder must release | **Permits**: no owner |
+| Who may release? | The owning thread | **Any thread** can `release()` |
+| Concurrency | One writer / many readers (shared) | Any chosen number *N* |
+
+Use cases: **API rate limiter** (e.g., allow only N in-flight calls to a bank API), connection/resource pools, capping parallel tasks (e.g., max 5 at a time).
+
+---
+
+### 8. `Condition` — Modern `wait` / `notify`
+
+`Object.wait/notify/notifyAll` give each object **one** wait queue. `Condition` (from `lock.newCondition()`) lets one lock have **multiple** wait queues:
+
+| Old (`Object`) | New (`Condition`) |
+|---|---|
+| `wait()` | `await()` |
+| `notify()` | `signal()` |
+| `notifyAll()` | `signalAll()` |
+
+```java
+Lock lock = new ReentrantLock();
+Condition notFull  = lock.newCondition();   // producers wait here
+Condition notEmpty = lock.newCondition();   // consumers wait here
+```
+
+Rules (same as before):
+- `await/signal/signalAll` require **holding the lock**, else `IllegalMonitorStateException`.
+- `await()` **releases the lock** and parks the thread in *that condition's* queue; `signal()` wakes one thread from *that* queue only.
+- Still subject to **spurious wakeups** → always wait in a **`while`** loop.
+
+#### Producer–consumer with two conditions
+
+```java
+class Box {
+    private Integer item = null;
+    private final Lock lock = new ReentrantLock();
+    private final Condition notFull  = lock.newCondition();
+    private final Condition notEmpty = lock.newCondition();
+
+    void produce(int v) throws InterruptedException {
+        lock.lock();
+        try {
+            while (item != null) notFull.await();     // wait until empty
+            item = v;
+            notEmpty.signal();                         // wake a CONSUMER only
+        } finally { lock.unlock(); }
+    }
+
+    int consume() throws InterruptedException {
+        lock.lock();
+        try {
+            while (item == null) notEmpty.await();    // wait until full
+            int v = item; item = null;
+            notFull.signal();                          // wake a PRODUCER only
+            return v;
+        } finally { lock.unlock(); }
+    }
+}
+```
+Because producers and consumers wait in **separate queues**, `signal()` can never wake the wrong kind of thread — the "lost wake-up" problem from last lecture disappears, and you rarely need `signalAll()`.
+
+---
+
+### 9. Choosing a Tool
+
+| Need | Use |
+|---|---|
+| Simple mutual exclusion, short critical section | `synchronized` |
+| Try/timeout/interruptible/fair locking | `ReentrantLock` |
+| Many readers, few writers | `ReentrantReadWriteLock` |
+| Read-heavy and read cost dominates; willing to re-read on conflict | `StampedLock` (optimistic) |
+| Limit concurrency to *N* | `Semaphore` |
+| Multiple wait conditions on one lock | `Condition` (via `ReentrantLock`) |
+
+---
+
+#### Quick Self-Check
+
+> **Q1.** Name three things `ReentrantLock` can do that `synchronized` can't.
+
+*Answer:* `tryLock()` (don't block), timed `tryLock(time, unit)`, and fair ordering — plus interruptible acquisition and multiple `Condition`s.
+
+> **Q2.** Why must `unlock()` be in `finally`?
+
+*Answer:* If the critical section throws, a plain `unlock()` is skipped and the lock stays held forever, blocking all other threads.
+
+> **Q3.** A thread calls `lock()` three times. How many `unlock()` calls are needed?
+
+*Answer:* Three — reentrant locks keep a hold count, and the lock is released only when it returns to zero.
+
+> **Q4.** Why is lock upgrade (read → write) disallowed but downgrade allowed?
+
+*Answer:* Other readers may share the read lock, so it can't be converted to an exclusive lock without deadlock. Downgrading is safe: take the read lock before releasing the write lock so no writer slips in.
+
+> **Q5.** How does `StampedLock`'s optimistic read work, and when does it fall back?
+
+*Answer:* `tryOptimisticRead()` returns a stamp without locking; read the data; `validate(stamp)` checks that no write occurred. If validation fails, retry with a real read lock.
+
+> **Q6.** Difference between a lock and a semaphore?
+
+*Answer:* A lock has an owner who must release it; a semaphore has permits and any thread can release. Semaphores allow up to *N* threads in.
+
+> **Q7.** What does `Condition` improve over `wait/notify`?
+
+*Answer:* Multiple wait queues per lock, so you can signal the right group (e.g., only consumers) instead of waking an arbitrary waiter.
+
+---
+
+#### Golden Rules / Checklist
+
+- [ ] `synchronized` has no try/timeout/fairness/interruptibility; the `Lock` API adds them at the cost of **manual unlock**.
+- [ ] **`lock()` before `try`, `unlock()` in `finally`** — always.
+- [ ] All threads must share **the same lock instance**.
+- [ ] `ReentrantLock` allows re-acquisition by the owner; **unlock as many times as you lock**.
+- [ ] `tryLock()` / `tryLock(timeout)` let a thread **do something else** instead of blocking — only `unlock()` if it returned `true`.
+- [ ] Default lock = **unfair** (faster); `new ReentrantLock(true)` = fair (prevents starvation, slower).
+- [ ] `isLocked()`/`isHeldByCurrentThread()`/`getHoldCount()` are for monitoring/debugging, not for control flow.
+- [ ] **Read lock = shared, write lock = exclusive**; readers exclude writers; watch for **writer starvation**.
+- [ ] **Downgrade** (hold write, take read, release write) ✅; **upgrade** ❌.
+- [ ] **`StampedLock`**: stamps instead of ownership, **not reentrant**, no `Condition`; optimistic read = stamp → read into locals → `validate` → fallback to `readLock`.
+- [ ] **Pessimistic** = lock first (cost every time); **optimistic** = verify afterwards (cheap when conflicts are rare).
+- [ ] **`Semaphore`** = permits, no ownership; always `release()` in `finally`.
+- [ ] **`Condition`**: `await/signal/signalAll`, must hold the lock, wait in a **`while`**, one lock can have **many** conditions.
+
+---
+
+#### Practice Questions
+
+**Basic**
+
+1. Convert a `synchronized` method into `ReentrantLock` code with correct unlocking.
+
+2. What are the three limitations of `synchronized` highlighted in this lecture?
+
+3. What do `isFair()` and `getHoldCount()` return?
+
+**Intermediate**
+
+4. Write a method that tries to acquire a lock for 2 seconds and otherwise logs "busy" and returns. Where must `unlock()` go?
+
+
+5. Implement a `read()`/`write()` shared resource with `ReentrantReadWriteLock`. What happens if two readers and one writer arrive together?
+
+6. Implement a downgrade: write a value, then read it back without allowing another writer in between.
+
+**Advanced / Interview-style**
+
+7. Write the optimistic-read pattern with `StampedLock`. Why must fields be copied to locals before `validate`? What happens if you try to re-lock from the same thread?
+
+8. Design an API rate limiter that allows at most 5 concurrent calls using `Semaphore`. Why does the "any thread can release" property matter, and what bug does it enable?
+
+9. Re-implement producer–consumer with two `Condition`s. Explain why the multi-producer/multi-consumer lost-wakeup problem can't occur.
+
+10. When would you choose `synchronized` over `ReentrantLock` in a code review? When the reverse?
+
 
 ```java
 // ^###(?=\s)
